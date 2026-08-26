@@ -15,7 +15,27 @@
   "stats_1541982371929260202": {
     "1532548944419229710": {
       "messages": 6,
-      "voiceMinutes": 0
+      "voiceMinutes": 1
+    },
+    "698560284134211630": {
+      "messages": 0,
+      "voiceMinutes": 1
+    },
+    "1399123831377100903": {
+      "messages": 0,
+      "voiceMinutes": 1
+    },
+    "618042706031280133": {
+      "messages": 0,
+      "voiceMinutes": 1
+    },
+    "1377301118052208674": {
+      "messages": 0,
+      "voiceMinutes": 1
+    },
+    "1391860474307411988": {
+      "messages": 0,
+      "voiceMinutes": 1
     }
   },
   "leaderboard_1541982371929260202": "1542298885580521584"
