@@ -1,12 +1,16 @@
 require("dotenv").config();
-const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, SlashCommandBuilder, REST, Routes, Events } = require("discord.js");
+const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, Events } = require("discord.js");
 const express = require("express");
+
+const OWNER_ID = "1532548944419229710";
+const PREFIX = "!";
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -15,66 +19,37 @@ const channelConfigs = new Map();
 
 client.once(Events.ClientReady, () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
-  registerCommands();
 });
 
-async function registerCommands() {
-  const commands = [
-    new SlashCommandBuilder()
-      .setName("setup-vocal")
-      .setDescription("Configurer le salon vocal perso")
-      .addChannelOption((opt) =>
-        opt.setName("salon").setDescription("Salon vocal de creation").setRequired(true).addChannelTypes(ChannelType.GuildVoice)
-      )
-      .addRoleOption((opt) =>
-        opt.setName("role").setDescription("Role a donner aux membres").setRequired(false)
-      )
-      .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
+client.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return;
+  if (message.author.id !== OWNER_ID) return;
+  if (!message.content.startsWith(PREFIX)) return;
 
-    new SlashCommandBuilder()
-      .setName("setup-autorole")
-      .setDescription("Configurer l'auto-role")
-      .addRoleOption((opt) =>
-        opt.setName("role").setDescription("Role a assigner automatiquement").setRequired(true)
-      )
-      .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator),
-  ];
+  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
 
-  const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+  if (command === "setup-vocal") {
+    const salon = message.mentions.channels.first();
+    if (!salon || salon.type !== ChannelType.GuildVoice) {
+      return message.reply("Mentionne un salon vocal valide.");
+    }
 
-  try {
-    await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), {
-      body: commands.map((c) => c.toJSON()),
-    });
-    console.log("Commandes enregistrees.");
-  } catch (err) {
-    console.error(err);
-  }
-}
-
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isChatInputCommand()) return;
-
-  if (interaction.commandName === "setup-vocal") {
-    const salon = interaction.options.getChannel("salon");
-    const role = interaction.options.getRole("role");
-    channelConfigs.set(interaction.guild.id, {
+    const role = message.mentions.roles.first();
+    channelConfigs.set(message.guild.id, {
       vocalId: salon.id,
       roleId: role ? role.id : null,
     });
-    await interaction.reply({
-      content: `Salon vocal perso configure sur <#${salon.id}>${role ? ` avec le role <@&${role.id}>` : ""}`,
-      ephemeral: true,
-    });
+
+    message.reply(`Salon vocal perso configure sur <#${salon.id}>${role ? ` avec le role <@&${role.id}>` : ""}`);
   }
 
-  if (interaction.commandName === "setup-autorole") {
-    const role = interaction.options.getRole("role");
-    channelConfigs.set(`autorole_${interaction.guild.id}`, role.id);
-    await interaction.reply({
-      content: `Auto-role configure sur <@&${role.id}>`,
-      ephemeral: true,
-    });
+  if (command === "setup-autorole") {
+    const role = message.mentions.roles.first();
+    if (!role) return message.reply("Mentionne un role.");
+
+    channelConfigs.set(`autorole_${message.guild.id}`, role.id);
+    message.reply(`Auto-role configure sur <@&${role.id}>`);
   }
 });
 
