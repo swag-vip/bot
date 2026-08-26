@@ -72,7 +72,8 @@ function buildLeaderboardEmbed(guildId, guild) {
     return member ? member.user.username : id;
   }
 
-  let descMsg = "```ansi\n";
+  let descMsg = "```\n";
+  descMsg += "=== MESSAGES ===\n";
   descMsg += "#   Membre                   Messages\n";
   descMsg += "──────────────────────────────────────\n";
   for (let i = 0; i < 10; i++) {
@@ -89,7 +90,8 @@ function buildLeaderboardEmbed(guildId, guild) {
   }
   descMsg += "```\n";
 
-  let descVoc = "```ansi\n";
+  let descVoc = "```\n";
+  descVoc += "=== VOCAL ===\n";
   descVoc += "#   Membre                   Temps\n";
   descVoc += "──────────────────────────────────────\n";
   for (let i = 0; i < 10; i++) {
