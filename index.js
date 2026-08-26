@@ -26,7 +26,10 @@ function loadConfigs() {
   try {
     if (fs.existsSync(DATA_FILE)) {
       channelConfigs = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
-      console.log("[Config] Configs chargees depuis data.json");
+      console.log("[Config] Configs chargees");
+    } else {
+      channelConfigs = {};
+      fs.writeFileSync(DATA_FILE, "{}");
     }
   } catch (err) {
     console.error("[Config] Erreur chargement:", err);
@@ -37,14 +40,18 @@ function loadConfigs() {
 function saveConfigs() {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
-    execSync("git config user.name \"Bot Config\"", { stdio: "ignore" });
-    execSync("git config user.email \"bot@config\"", { stdio: "ignore" });
+    const token = process.env.GITHUB_TOKEN;
+    if (token) {
+      execSync(`git remote set-url origin https://x-access-token:${token}@github.com/swag-vip/bot.git`, { stdio: "ignore" });
+    }
+    execSync("git config user.name \"Bot\"", { stdio: "ignore" });
+    execSync("git config user.email \"bot@bot.com\"", { stdio: "ignore" });
     execSync("git add data.json", { stdio: "ignore" });
     execSync("git diff --cached --quiet || git commit -m \"Update config\"", { stdio: "ignore" });
-    execSync("git push", { stdio: "ignore" });
+    execSync("git push origin main", { stdio: "ignore" });
     console.log("[Config] Configs sauvegardees");
   } catch (err) {
-    console.error("[Config] Erreur sauvegarde:", err);
+    console.error("[Config] Erreur sauvegarde:", err.message);
   }
 }
 
