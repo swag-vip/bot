@@ -116,6 +116,7 @@ client.once(Events.ClientReady, async () => {
     const roleId = channelConfigs[`statusrole_${guild.id}`];
     if (!roleId) continue;
     await guild.members.fetch();
+    await guild.presences.fetch().catch(() => {});
     guild.members.cache.forEach((member) => {
       if (!member.user.bot) checkStatusRole(member);
     });
