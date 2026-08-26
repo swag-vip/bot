@@ -20,6 +20,18 @@ const channelConfigs = new Map();
 client.once(Events.ClientReady, () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
   console.log(`Serveurs: ${client.guilds.cache.map(g => `${g.name} (${g.id})`).join(", ")}`);
+
+  const guild = client.guilds.cache.get(process.env.GUILD_ID);
+  if (guild) {
+    const channel = guild.channels.cache.find(c => c.isTextBased());
+    if (channel) {
+      channel.send("Bot en ligne ! Utilise `!setup-vocal #salon` pour configurer.").then(() => {
+        console.log("Message envoye !");
+      }).catch(err => {
+        console.error("Erreur envoi:", err);
+      });
+    }
+  }
 });
 
 client.on(Events.MessageCreate, async (message) => {
