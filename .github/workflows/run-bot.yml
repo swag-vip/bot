@@ -4,10 +4,13 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+  schedule:
+    - cron: "0 */4 * * *"
 
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 235
     steps:
       - uses: actions/checkout@v4
 
