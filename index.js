@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, Events } = require("discord.js");
+const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
 const express = require("express");
 
 const OWNER_ID = "1532548944419229710";
@@ -17,6 +17,7 @@ const client = new Client({
 
 const tempChannels = new Map();
 const channelConfigs = new Map();
+const lockedChannels = new Set();
 
 client.once(Events.ClientReady, () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
@@ -112,12 +113,40 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       name: `Solo de ${member.user.username}`,
       type: ChannelType.GuildVoice,
       parent: category ? category.id : null,
-      topic: `Salon personnel de ${member.user.username} | Toutes les permissions sont a toi !`,
       permissionOverwrites: permOverwrites,
     });
 
     tempChannels.set(channel.id, member.id);
     await member.voice.setChannel(channel);
+
+    const panelEmbed = new EmbedBuilder()
+      .setColor("#2f3136")
+      .setAuthor({ name: `${member.user.username}`, iconURL: member.user.displayAvatarURL() })
+      .setDescription(`**Salon personnel**\n> Toutes les permissions sont a toi !\n> Gere ton salon avec les boutons ci-dessous.`)
+      .setThumbnail(member.user.displayAvatarURL())
+      .setTimestamp();
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`lock_${channel.id}`)
+        .setLabel("Lock")
+        .setEmoji("🔒")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`unlock_${channel.id}`)
+        .setLabel("Unlock")
+        .setEmoji("🔓")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`delete_${channel.id}`)
+        .setLabel("Supprimer")
+        .setEmoji("❌")
+        .setStyle(ButtonStyle.Danger),
+    );
+
+    try {
+      await channel.send({ embeds: [panelEmbed], components: [row] });
+    } catch (err) {}
   }
 
   if (oldState.channel && tempChannels.has(oldState.channel.id)) {
@@ -136,5 +165,41 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 const app = express();
 app.get("/", (req, res) => res.send("Bot actif !"));
 app.listen(3000, () => console.log("Serveur keep-alive actif sur le port 3000"));
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  const [action, channelId] = interaction.customId.split("_");
+  const channel = interaction.guild.channels.cache.get(channelId);
+  if (!channel) return;
+
+  const ownerId = tempChannels.get(channelId);
+  if (interaction.user.id !== ownerId) {
+    return interaction.reply({ content: "Ce n'est pas ton salon !", ephemeral: true });
+  }
+
+  if (action === "lock") {
+    await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, {
+      Connect: false,
+      ViewChannel: false,
+    });
+    lockedChannels.add(channelId);
+    await interaction.reply({ content: "Salon **verrouille** 🔒", ephemeral: false });
+  }
+
+  if (action === "unlock") {
+    await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, {
+      Connect: true,
+      ViewChannel: true,
+    });
+    lockedChannels.delete(channelId);
+    await interaction.reply({ content: "Salon **deverrouille** 🔓", ephemeral: false });
+  }
+
+  if (action === "delete") {
+    tempChannels.delete(channelId);
+    await channel.delete();
+  }
+});
 
 client.login(process.env.TOKEN);
