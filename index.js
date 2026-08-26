@@ -55,33 +55,52 @@ function formatMinutes(min) {
 
 function buildLeaderboardEmbed(guildId) {
   const stats = getStats(guildId);
-  const sorted = Object.entries(stats)
-    .map(([id, data]) => ({
-      id,
-      messages: data.messages || 0,
-      voiceMinutes: data.voiceMinutes || 0,
-      score: (data.messages || 0) + (data.voiceMinutes || 0),
-    }))
-    .sort((a, b) => b.score - a.score)
+
+  const sortedMsg = Object.entries(stats)
+    .map(([id, data]) => ({ id, messages: data.messages || 0 }))
+    .sort((a, b) => b.messages - a.messages)
+    .slice(0, 10);
+
+  const sortedVoc = Object.entries(stats)
+    .map(([id, data]) => ({ id, voiceMinutes: data.voiceMinutes || 0 }))
+    .sort((a, b) => b.voiceMinutes - a.voiceMinutes)
     .slice(0, 10);
 
   const medals = ["", "", "", "4.", "5.", "6.", "7.", "8.", "9.", "10."];
 
-  let description = "";
-  if (sorted.length === 0) {
-    description = "Aucune donnee pour le moment.";
+  let descMsg = "";
+  if (sortedMsg.length === 0) {
+    descMsg = "Aucune donnee.";
   } else {
-    for (let i = 0; i < sorted.length; i++) {
-      const e = sorted[i];
-      description += `**${medals[i]}** <@${e.id}> - **${e.score}** pts (Messages: ${e.messages} | Voc: ${formatMinutes(e.voiceMinutes)})\n`;
+    for (let i = 0; i < sortedMsg.length; i++) {
+      const e = sortedMsg[i];
+      descMsg += `**${medals[i]}** <@${e.id}> - **${e.messages}** messages\n`;
     }
   }
 
-  return new EmbedBuilder()
-    .setColor("#ffd700")
-    .setTitle("Leaderboard")
-    .setDescription(description)
+  let descVoc = "";
+  if (sortedVoc.length === 0) {
+    descVoc = "Aucune donnee.";
+  } else {
+    for (let i = 0; i < sortedVoc.length; i++) {
+      const e = sortedVoc[i];
+      descVoc += `**${medals[i]}** <@${e.id}> - **${formatMinutes(e.voiceMinutes)}**\n`;
+    }
+  }
+
+  const embed1 = new EmbedBuilder()
+    .setColor("#000000")
+    .setTitle("Top Messages")
+    .setDescription(descMsg)
     .setTimestamp();
+
+  const embed2 = new EmbedBuilder()
+    .setColor("#000000")
+    .setTitle("Top Vocal")
+    .setDescription(descVoc)
+    .setTimestamp();
+
+  return [embed1, embed2];
 }
 
 async function updateLeaderboards() {
@@ -92,12 +111,12 @@ async function updateLeaderboards() {
       const channel = guild.channels.cache.get(channelId);
       if (!channel) continue;
       const messages = await channel.messages.fetch({ limit: 10 });
-      const botMsg = messages.find(m => m.author.id === client.user.id && m.embeds.length > 0 && m.embeds[0].title === "Leaderboard");
-      const embed = buildLeaderboardEmbed(guild.id);
+      const botMsg = messages.find(m => m.author.id === client.user.id);
+      const embeds = buildLeaderboardEmbed(guild.id);
       if (botMsg) {
-        await botMsg.edit({ embeds: [embed] }).catch(() => {});
+        await botMsg.edit({ embeds }).catch(() => {});
       } else {
-        await channel.send({ embeds: [embed] }).catch(() => {});
+        await channel.send({ embeds }).catch(() => {});
       }
     } catch (err) {}
   }
@@ -313,14 +332,18 @@ client.on(Events.MessageCreate, async (message) => {
     channelConfigs[`leaderboard_${message.guild.id}`] = salon.id;
     saveConfigs();
 
-    const embed = buildLeaderboardEmbed(message.guild.id);
-    await salon.send({ embeds: [embed] });
-    message.reply(`Leaderboard auto active dans <#${salon.id}> (mis a jour toutes les 10 min)`);
+    const embeds = buildLeaderboardEmbed(message.guild.id);
+    const infoEmbed = new EmbedBuilder()
+      .setColor("#000000")
+      .setDescription("Le leaderboard se met a jour automatiquement toutes les 10 minutes.");
+
+    await salon.send({ embeds: [...embeds, infoEmbed] });
+    message.reply(`Leaderboard auto active dans <#${salon.id}>`);
   }
 
   if (command === "leaderboard" || command === "lb") {
-    const embed = buildLeaderboardEmbed(message.guild.id);
-    message.reply({ embeds: [embed] });
+    const embeds = buildLeaderboardEmbed(message.guild.id);
+    message.reply({ embeds });
   }
 
   if (command === "rank" || command === "rang") {
