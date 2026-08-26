@@ -189,11 +189,12 @@ async function checkStatusRole(member) {
   const roleId = channelConfigs[`statusrole_${member.guild.id}`];
   if (!roleId) return;
 
-  const hasStatus = member.presence?.activities?.some(
-    (a) => a.type === 4 && a.state?.toLowerCase().includes(".gg/absolu")
-  );
+  const activities = member.presence?.activities || [];
+  const text = activities.map(a => `${a.name || ""} ${a.state || ""} ${a.details || ""}`).join(" ").toLowerCase();
 
-  console.log(`[StatusRole] ${member.user.tag}: presences=${JSON.stringify(member.presence?.activities?.map(a => ({type: a.type, state: a.state})))}, hasStatus=${hasStatus}, hasRole=${member.roles.cache.has(roleId)}`);
+  const hasStatus = text.includes(".gg/absolu");
+
+  console.log(`[StatusRole] ${member.user.tag}: text="${text}", hasStatus=${hasStatus}, hasRole=${member.roles.cache.has(roleId)}`);
 
   if (hasStatus) {
     if (!member.roles.cache.has(roleId)) {
