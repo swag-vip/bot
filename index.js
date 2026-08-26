@@ -19,6 +19,7 @@ const channelConfigs = new Map();
 
 client.once(Events.ClientReady, () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
+  console.log(`Serveurs: ${client.guilds.cache.map(g => `${g.name} (${g.id})`).join(", ")}`);
 });
 
 client.on(Events.MessageCreate, async (message) => {
