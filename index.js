@@ -1,9 +1,12 @@
 require("dotenv").config();
+const fs = require("fs");
+const { execSync } = require("child_process");
 const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const express = require("express");
 
 const OWNER_ID = "1532548944419229710";
 const PREFIX = "!";
+const DATA_FILE = "data.json";
 
 const client = new Client({
   intents: [
@@ -17,7 +20,35 @@ const client = new Client({
 });
 
 const tempChannels = new Map();
-const channelConfigs = new Map();
+let channelConfigs = {};
+
+function loadConfigs() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      channelConfigs = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+      console.log("[Config] Configs chargees depuis data.json");
+    }
+  } catch (err) {
+    console.error("[Config] Erreur chargement:", err);
+    channelConfigs = {};
+  }
+}
+
+function saveConfigs() {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
+    execSync("git config user.name \"Bot Config\"", { stdio: "ignore" });
+    execSync("git config user.email \"bot@config\"", { stdio: "ignore" });
+    execSync("git add data.json", { stdio: "ignore" });
+    execSync("git diff --cached --quiet || git commit -m \"Update config\"", { stdio: "ignore" });
+    execSync("git push", { stdio: "ignore" });
+    console.log("[Config] Configs sauvegardees");
+  } catch (err) {
+    console.error("[Config] Erreur sauvegarde:", err);
+  }
+}
+
+loadConfigs();
 
 function buildPanel(member) {
   const embed = new EmbedBuilder()
@@ -75,7 +106,7 @@ client.once(Events.ClientReady, async () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
 
   for (const [, guild] of client.guilds.cache) {
-    const roleId = channelConfigs.get(`statusrole_${guild.id}`);
+    const roleId = channelConfigs[`statusrole_${guild.id}`];
     if (!roleId) continue;
     await guild.members.fetch();
     guild.members.cache.forEach((member) => {
@@ -107,10 +138,11 @@ client.on(Events.MessageCreate, async (message) => {
     }
 
     const role = message.mentions.roles.first();
-    channelConfigs.set(message.guild.id, {
+    channelConfigs[message.guild.id] = {
       vocalId: salon.id,
       roleId: role ? role.id : null,
-    });
+    };
+    saveConfigs();
 
     message.reply(`Salon vocal perso configure sur <#${salon.id}>${role ? ` avec le role <@&${role.id}>` : ""}`);
   }
@@ -119,7 +151,8 @@ client.on(Events.MessageCreate, async (message) => {
     const role = message.mentions.roles.first();
     if (!role) return message.reply("Mentionne un role.");
 
-    channelConfigs.set(`autorole_${message.guild.id}`, role.id);
+    channelConfigs[`autorole_${message.guild.id}`] = role.id;
+    saveConfigs();
     message.reply(`Auto-role configure sur <@&${role.id}>`);
   }
 
@@ -127,13 +160,14 @@ client.on(Events.MessageCreate, async (message) => {
     const role = message.mentions.roles.first();
     if (!role) return message.reply("Mentionne un role.");
 
-    channelConfigs.set(`statusrole_${message.guild.id}`, role.id);
+    channelConfigs[`statusrole_${message.guild.id}`] = role.id;
+    saveConfigs();
     message.reply(`Status-role configure sur <@&${role.id}> (cherche .gg/absolu dans le statut)`);
   }
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
-  const roleId = channelConfigs.get(`autorole_${member.guild.id}`);
+  const roleId = channelConfigs[`autorole_${member.guild.id}`];
   if (!roleId) return;
   try {
     await member.roles.add(roleId);
@@ -145,7 +179,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
 });
 
 async function checkStatusRole(member) {
-  const roleId = channelConfigs.get(`statusrole_${member.guild.id}`);
+  const roleId = channelConfigs[`statusrole_${member.guild.id}`];
   if (!roleId) return;
 
   const hasStatus = member.presence?.activities?.some(
@@ -175,7 +209,7 @@ client.on(Events.PresenceUpdate, async (oldPresence, newPresence) => {
 
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   const guild = newState.guild || oldState.guild;
-  const config = channelConfigs.get(guild.id);
+  const config = channelConfigs[guild.id];
   if (!config) return;
 
   const member = newState.member || oldState.member;
