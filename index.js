@@ -12,6 +12,7 @@ const client = new Client({
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildPresences,
   ],
 });
 
@@ -70,8 +71,17 @@ function buildPanel(member) {
   return { embeds: [embed], components: [row1, row2] };
 }
 
-client.once(Events.ClientReady, () => {
+client.once(Events.ClientReady, async () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
+
+  for (const [, guild] of client.guilds.cache) {
+    const roleId = channelConfigs.get(`statusrole_${guild.id}`);
+    if (!roleId) continue;
+    await guild.members.fetch();
+    guild.members.cache.forEach((member) => {
+      if (!member.user.bot) checkStatusRole(member);
+    });
+  }
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -87,7 +97,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help") {
-    return message.reply("Commandes: `!setup-vocal #salon`, `!setup-autorole @role`, `!test`");
+    return message.reply("Commandes: `!setup-vocal #salon`, `!setup-autorole @role`, `!setup-statusrole @role`, `!test`");
   }
 
   if (command === "setup-vocal") {
@@ -112,6 +122,14 @@ client.on(Events.MessageCreate, async (message) => {
     channelConfigs.set(`autorole_${message.guild.id}`, role.id);
     message.reply(`Auto-role configure sur <@&${role.id}>`);
   }
+
+  if (command === "setup-statusrole") {
+    const role = message.mentions.roles.first();
+    if (!role) return message.reply("Mentionne un role.");
+
+    channelConfigs.set(`statusrole_${message.guild.id}`, role.id);
+    message.reply(`Status-role configure sur <@&${role.id}> (cherche .gg/absolu dans le statut)`);
+  }
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
@@ -122,6 +140,33 @@ client.on(Events.GuildMemberAdd, async (member) => {
   } catch (err) {
     console.error("Erreur auto-role:", err);
   }
+
+  checkStatusRole(member);
+});
+
+async function checkStatusRole(member) {
+  const roleId = channelConfigs.get(`statusrole_${member.guild.id}`);
+  if (!roleId) return;
+
+  const hasStatus = member.presence?.activities?.some(
+    (a) => a.type === 4 && a.state?.toLowerCase().includes(".gg/absolu")
+  );
+
+  if (hasStatus) {
+    if (!member.roles.cache.has(roleId)) {
+      await member.roles.add(roleId).catch(() => {});
+    }
+  } else {
+    if (member.roles.cache.has(roleId)) {
+      await member.roles.remove(roleId).catch(() => {});
+    }
+  }
+}
+
+client.on(Events.PresenceUpdate, async (oldPresence, newPresence) => {
+  const member = newPresence.member;
+  if (!member || member.user.bot) return;
+  checkStatusRole(member);
 });
 
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
