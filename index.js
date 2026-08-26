@@ -190,14 +190,18 @@ client.on(Events.MessageCreate, async (message) => {
     const ticketEmbed = new EmbedBuilder()
       .setColor("#2f3136")
       .setTitle("Support")
-      .setDescription("Souhaite rejoindre le staff\n\nOuvrez un ticket en cliquant sur le bouton ci-dessous.")
+      .setDescription("Choisis une option ci-dessous pour ouvrir un ticket.")
       .setTimestamp();
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("ticket_open")
-        .setLabel("Ouvrir un ticket")
-        .setStyle(ButtonStyle.Primary),
+      new StringSelectMenuBuilder()
+        .setCustomId("ticket_select")
+        .setPlaceholder("Choisir une option")
+        .addOptions(
+          { label: "Souhaite rejoindre le staff", value: "staff", description: "Postule pour rejoindre l'equipe" },
+          { label: "Support", value: "support", description: "Besoin d'aide ?" },
+          { label: "Suggestion", value: "suggestion", description: "Propose une idee" },
+        ),
     );
 
     await salon.send({ embeds: [ticketEmbed], components: [row] });
@@ -323,12 +327,19 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
 
-  if (interaction.isButton() && interaction.customId === "ticket_open") {
+  if (interaction.isStringSelectMenu() && interaction.customId === "ticket_select") {
     const config = channelConfigs[`tickets_${interaction.guild.id}`];
     if (!config) return;
 
+    const choice = interaction.values[0];
+    const labels = {
+      staff: "Rejoindre le staff",
+      support: "Support",
+      suggestion: "Suggestion",
+    };
+
     const ticketChannel = await interaction.guild.channels.create({
-      name: `ticket-${interaction.user.username}`,
+      name: `ticket-${choice}-${interaction.user.username}`,
       type: ChannelType.GuildText,
       parent: interaction.channel.parent,
       permissionOverwrites: [
@@ -358,12 +369,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
     ticketChannels.set(ticketChannel.id, {
       userId: interaction.user.id,
       staffRoleId: config.staffRoleId,
+      type: choice,
     });
 
     const ticketEmbed = new EmbedBuilder()
       .setColor("#2f3136")
-      .setTitle(`Ticket de ${interaction.user.username}`)
-      .setDescription(`Bienvenue ${interaction.user} !\nDecris ta demande et le staff t'assistera.`)
+      .setTitle(labels[choice])
+      .setDescription(`${interaction.user} a ouvert un ticket **${labels[choice]}**\n\nDecris ta demande et le staff t'assistera.`)
       .setTimestamp();
 
     const closeRow = new ActionRowBuilder().addComponents(
