@@ -21,7 +21,37 @@ const client = new Client({
 
 const tempChannels = new Map();
 const ticketChannels = new Map();
+const voiceJoinTimes = new Map();
 let channelConfigs = {};
+
+function getStats(guildId) {
+  if (!channelConfigs[`stats_${guildId}`]) {
+    channelConfigs[`stats_${guildId}`] = {};
+  }
+  return channelConfigs[`stats_${guildId}`];
+}
+
+function addMessage(guildId, userId) {
+  const stats = getStats(guildId);
+  if (!stats[userId]) stats[userId] = { messages: 0, voiceMinutes: 0 };
+  stats[userId].messages += 1;
+}
+
+function addVoiceTime(guildId, userId, minutes) {
+  const stats = getStats(guildId);
+  if (!stats[userId]) stats[userId] = { messages: 0, voiceMinutes: 0 };
+  stats[userId].voiceMinutes += minutes;
+}
+
+function formatMinutes(min) {
+  if (min < 60) return `${min}min`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  if (h < 24) return `${h}h${m > 0 ? m + "min" : ""}`;
+  const d = Math.floor(h / 24);
+  const rh = h % 24;
+  return `${d}j${rh > 0 ? rh + "h" : ""}`;
+}
 
 function loadConfigs() {
   try {
@@ -125,6 +155,8 @@ client.once(Events.ClientReady, async () => {
 
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
+  addMessage(message.guild.id, message.author.id);
+
   if (message.author.id !== OWNER_ID) return;
   if (!message.content.startsWith(PREFIX)) return;
 
@@ -136,7 +168,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!leaderboard` - Classement\n`!rank` - Ton rang");
   }
 
   if (command === "setup-vocal") {
@@ -221,6 +253,62 @@ client.on(Events.MessageCreate, async (message) => {
       message.channel.delete().catch(() => {});
     }, 5000);
   }
+
+  if (command === "leaderboard" || command === "lb") {
+    const stats = getStats(message.guild.id);
+    const sorted = Object.entries(stats)
+      .map(([id, data]) => ({
+        id,
+        messages: data.messages || 0,
+        voiceMinutes: data.voiceMinutes || 0,
+        score: (data.messages || 0) + (data.voiceMinutes || 0),
+      }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 10);
+
+    if (sorted.length === 0) return message.reply("Aucune donnee pour le moment.");
+
+    const medals = ["", "", "", "4.", "5.", "6.", "7.", "8.", "9.", "10."];
+
+    let description = "";
+    for (let i = 0; i < sorted.length; i++) {
+      const e = sorted[i];
+      description += `**${medals[i]}** <@${e.id}> - **${e.score}** pts (Messages: ${e.messages} | Voc: ${formatMinutes(e.voiceMinutes)})\n`;
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor("#ffd700")
+      .setTitle("Leaderboard")
+      .setDescription(description)
+      .setTimestamp();
+
+    message.reply({ embeds: [embed] });
+  }
+
+  if (command === "rank" || command === "rang") {
+    const stats = getStats(message.guild.id);
+    const data = stats[message.author.id] || { messages: 0, voiceMinutes: 0 };
+    const score = (data.messages || 0) + (data.voiceMinutes || 0);
+
+    const allSorted = Object.entries(stats)
+      .map(([id, d]) => ({ id, score: (d.messages || 0) + (d.voiceMinutes || 0) }))
+      .sort((a, b) => b.score - a.score);
+
+    const rank = allSorted.findIndex(e => e.id === message.author.id) + 1;
+
+    const embed = new EmbedBuilder()
+      .setColor("#2f3136")
+      .setAuthor({ name: message.author.username, iconURL: message.author.displayAvatarURL() })
+      .addFields(
+        { name: "Rang", value: `#${rank}`, inline: true },
+        { name: "Score", value: `${score} pts`, inline: true },
+        { name: "Messages", value: `${data.messages || 0}`, inline: true },
+        { name: "Temps vocal", value: formatMinutes(data.voiceMinutes || 0), inline: true },
+      )
+      .setTimestamp();
+
+    message.reply({ embeds: [embed] });
+  }
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
@@ -267,11 +355,33 @@ client.on(Events.PresenceUpdate, async (oldPresence, newPresence) => {
 
 client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   const guild = newState.guild || oldState.guild;
-  const config = channelConfigs[guild.id];
-  if (!config) return;
-
   const member = newState.member || oldState.member;
   if (member.user.bot) return;
+
+  if (oldState.channel && !newState.channel) {
+    const joinTime = voiceJoinTimes.get(`${guild.id}_${member.id}`);
+    if (joinTime) {
+      const minutes = Math.floor((Date.now() - joinTime) / 60000);
+      if (minutes > 0) addVoiceTime(guild.id, member.id, minutes);
+      voiceJoinTimes.delete(`${guild.id}_${member.id}`);
+    }
+  }
+
+  if (!oldState.channel && newState.channel) {
+    voiceJoinTimes.set(`${guild.id}_${member.id}`, Date.now());
+  }
+
+  if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
+    const joinTime = voiceJoinTimes.get(`${guild.id}_${member.id}`);
+    if (joinTime) {
+      const minutes = Math.floor((Date.now() - joinTime) / 60000);
+      if (minutes > 0) addVoiceTime(guild.id, member.id, minutes);
+    }
+    voiceJoinTimes.set(`${guild.id}_${member.id}`, Date.now());
+  }
+
+  const config = channelConfigs[guild.id];
+  if (!config) return;
 
   if (newState.channel && newState.channel.id === config.vocalId) {
     const category = newState.channel.parent;
@@ -513,3 +623,18 @@ app.get("/", (req, res) => res.send("Bot actif !"));
 app.listen(3000, () => console.log("Serveur keep-alive actif sur le port 3000"));
 
 client.login(process.env.TOKEN);
+
+setInterval(() => {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
+    const token = process.env.GITHUB_TOKEN;
+    if (token) {
+      execSync(`git remote set-url origin https://x-access-token:${token}@github.com/swag-vip/bot.git`, { stdio: "ignore" });
+    }
+    execSync("git config user.name \"Bot\"", { stdio: "ignore" });
+    execSync("git config user.email \"bot@bot.com\"", { stdio: "ignore" });
+    execSync("git add data.json", { stdio: "ignore" });
+    execSync("git diff --cached --quiet || git commit -m \"Update stats\"", { stdio: "ignore" });
+    execSync("git push origin main", { stdio: "ignore" });
+  } catch (err) {}
+}, 5 * 60 * 1000);
