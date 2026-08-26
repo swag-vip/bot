@@ -152,13 +152,17 @@ async function checkStatusRole(member) {
     (a) => a.type === 4 && a.state?.toLowerCase().includes(".gg/absolu")
   );
 
+  console.log(`[StatusRole] ${member.user.tag}: presences=${JSON.stringify(member.presence?.activities?.map(a => ({type: a.type, state: a.state})))}, hasStatus=${hasStatus}, hasRole=${member.roles.cache.has(roleId)}`);
+
   if (hasStatus) {
     if (!member.roles.cache.has(roleId)) {
-      await member.roles.add(roleId).catch(() => {});
+      await member.roles.add(roleId).catch((err) => console.error(`[StatusRole] Erreur ajout role:`, err));
+      console.log(`[StatusRole] Role ajoute a ${member.user.tag}`);
     }
   } else {
     if (member.roles.cache.has(roleId)) {
-      await member.roles.remove(roleId).catch(() => {});
+      await member.roles.remove(roleId).catch((err) => console.error(`[StatusRole] Erreur remove role:`, err));
+      console.log(`[StatusRole] Role retire de ${member.user.tag}`);
     }
   }
 }
