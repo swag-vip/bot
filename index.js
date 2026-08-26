@@ -1,5 +1,5 @@
 require("dotenv").config();
-const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require("discord.js");
+const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, Events, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } = require("discord.js");
 const express = require("express");
 
 const OWNER_ID = "1532548944419229710";
@@ -17,7 +17,58 @@ const client = new Client({
 
 const tempChannels = new Map();
 const channelConfigs = new Map();
-const lockedChannels = new Set();
+
+function buildPanel(member) {
+  const embed = new EmbedBuilder()
+    .setColor("#2f3136")
+    .setAuthor({ name: member.user.username, iconURL: member.user.displayAvatarURL() })
+    .setDescription(`**Salon personnel**\n> Gere ton salon avec les boutons ci-dessous.`)
+    .setThumbnail(member.user.displayAvatarURL())
+    .setTimestamp();
+
+  const row1 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("panel_lock")
+      .setLabel("Lock")
+      .setEmoji("🔒")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("panel_unlock")
+      .setLabel("Unlock")
+      .setEmoji("🔓")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("panel_limit")
+      .setLabel("Limite")
+      .setEmoji("👥")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("panel_mute")
+      .setLabel("Mute All")
+      .setEmoji("🔇")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("panel_deafen")
+      .setLabel("Deafen All")
+      .setEmoji("🔕")
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  const row2 = new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId("panel_disconnect")
+      .setLabel("Deconnecter")
+      .setEmoji("⏏️")
+      .setStyle(ButtonStyle.Primary),
+    new ButtonBuilder()
+      .setCustomId("panel_delete")
+      .setLabel("Supprimer")
+      .setEmoji("❌")
+      .setStyle(ButtonStyle.Danger),
+  );
+
+  return { embeds: [embed], components: [row1, row2] };
+}
 
 client.once(Events.ClientReady, () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
@@ -119,33 +170,8 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     tempChannels.set(channel.id, member.id);
     await member.voice.setChannel(channel);
 
-    const panelEmbed = new EmbedBuilder()
-      .setColor("#2f3136")
-      .setAuthor({ name: `${member.user.username}`, iconURL: member.user.displayAvatarURL() })
-      .setDescription(`**Salon personnel**\n> Toutes les permissions sont a toi !\n> Gere ton salon avec les boutons ci-dessous.`)
-      .setThumbnail(member.user.displayAvatarURL())
-      .setTimestamp();
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`lock_${channel.id}`)
-        .setLabel("Lock")
-        .setEmoji("🔒")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(`unlock_${channel.id}`)
-        .setLabel("Unlock")
-        .setEmoji("🔓")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId(`delete_${channel.id}`)
-        .setLabel("Supprimer")
-        .setEmoji("❌")
-        .setStyle(ButtonStyle.Danger),
-    );
-
     try {
-      await channel.send({ embeds: [panelEmbed], components: [row] });
+      await channel.send(buildPanel(member));
     } catch (err) {}
   }
 
@@ -162,44 +188,93 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   }
 });
 
+client.on(Events.InteractionCreate, async (interaction) => {
+  const ownerId = tempChannels.get(interaction.channel?.id);
+  if (!ownerId) return;
+
+  if (interaction.isButton()) {
+    if (interaction.user.id !== ownerId) {
+      return interaction.reply({ content: "Ce n'est pas ton salon !", ephemeral: true });
+    }
+
+    const channel = interaction.channel;
+
+    if (interaction.customId === "panel_lock") {
+      await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: false, ViewChannel: false });
+      await interaction.reply({ content: "Salon **verrouille** 🔒", ephemeral: false });
+    }
+
+    if (interaction.customId === "panel_unlock") {
+      await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, { Connect: true, ViewChannel: true });
+      await interaction.reply({ content: "Salon **deverrouille** 🔓", ephemeral: false });
+    }
+
+    if (interaction.customId === "panel_limit") {
+      const row = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("select_limit")
+          .setPlaceholder("Choisir la limite")
+          .addOptions(
+            { label: "Pas de limite", value: "0" },
+            { label: "1 personne", value: "1" },
+            { label: "2 personnes", value: "2" },
+            { label: "3 personnes", value: "3" },
+            { label: "4 personnes", value: "4" },
+            { label: "5 personnes", value: "5" },
+            { label: "6 personnes", value: "6" },
+            { label: "7 personnes", value: "7" },
+            { label: "8 personnes", value: "8" },
+            { label: "9 personnes", value: "9" },
+            { label: "10 personnes", value: "10" },
+          ),
+      );
+      await interaction.reply({ components: [row], ephemeral: true });
+    }
+
+    if (interaction.customId === "panel_mute") {
+      channel.members.forEach((m) => {
+        if (m.id !== ownerId) m.voice.setMute(true).catch(() => {});
+      });
+      await interaction.reply({ content: "Tout le monde est **mute** 🔇", ephemeral: false });
+    }
+
+    if (interaction.customId === "panel_deafen") {
+      channel.members.forEach((m) => {
+        if (m.id !== ownerId) m.voice.setDeaf(true).catch(() => {});
+      });
+      await interaction.reply({ content: "Tout le monde est **deafen** 🔕", ephemeral: false });
+    }
+
+    if (interaction.customId === "panel_disconnect") {
+      channel.members.forEach((m) => {
+        if (m.id !== ownerId) m.voice.disconnect().catch(() => {});
+      });
+      await interaction.reply({ content: "Tout le monde a ete **deconnecte** ⏏️", ephemeral: false });
+    }
+
+    if (interaction.customId === "panel_delete") {
+      tempChannels.delete(channel.id);
+      await channel.delete();
+    }
+  }
+
+  if (interaction.isStringSelectMenu()) {
+    if (interaction.customId === "select_limit") {
+      if (interaction.user.id !== ownerId) {
+        return interaction.reply({ content: "Ce n'est pas ton salon !", ephemeral: true });
+      }
+      const limit = parseInt(interaction.values[0]);
+      await interaction.channel.setUserLimit(limit === 0 ? null : limit);
+      await interaction.reply({
+        content: limit === 0 ? "Limite **supprimee** 👥" : `Limite definie a **${limit}** personnes 👥`,
+        ephemeral: false,
+      });
+    }
+  }
+});
+
 const app = express();
 app.get("/", (req, res) => res.send("Bot actif !"));
 app.listen(3000, () => console.log("Serveur keep-alive actif sur le port 3000"));
-
-client.on(Events.InteractionCreate, async (interaction) => {
-  if (!interaction.isButton()) return;
-
-  const [action, channelId] = interaction.customId.split("_");
-  const channel = interaction.guild.channels.cache.get(channelId);
-  if (!channel) return;
-
-  const ownerId = tempChannels.get(channelId);
-  if (interaction.user.id !== ownerId) {
-    return interaction.reply({ content: "Ce n'est pas ton salon !", ephemeral: true });
-  }
-
-  if (action === "lock") {
-    await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, {
-      Connect: false,
-      ViewChannel: false,
-    });
-    lockedChannels.add(channelId);
-    await interaction.reply({ content: "Salon **verrouille** 🔒", ephemeral: false });
-  }
-
-  if (action === "unlock") {
-    await channel.permissionOverwrites.edit(interaction.guild.roles.everyone, {
-      Connect: true,
-      ViewChannel: true,
-    });
-    lockedChannels.delete(channelId);
-    await interaction.reply({ content: "Salon **deverrouille** 🔓", ephemeral: false });
-  }
-
-  if (action === "delete") {
-    tempChannels.delete(channelId);
-    await channel.delete();
-  }
-});
 
 client.login(process.env.TOKEN);
