@@ -107,7 +107,6 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
           PermissionsBitField.Flags.ViewChannel,
           PermissionsBitField.Flags.Speak,
           PermissionsBitField.Flags.Stream,
-          PermissionsBitField.Flags.UseVad,
           PermissionsBitField.Flags.MuteMembers,
           PermissionsBitField.Flags.DeafenMembers,
           PermissionsBitField.Flags.MoveMembers,
