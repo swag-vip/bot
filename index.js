@@ -20,6 +20,7 @@ const client = new Client({
 });
 
 const tempChannels = new Map();
+const ticketChannels = new Map();
 let channelConfigs = {};
 
 function loadConfigs() {
@@ -135,7 +136,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help") {
-    return message.reply("Commandes: `!setup-vocal #salon`, `!setup-autorole @role`, `!setup-statusrole @role`, `!test`");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket");
   }
 
   if (command === "setup-vocal") {
@@ -170,6 +171,47 @@ client.on(Events.MessageCreate, async (message) => {
     channelConfigs[`statusrole_${message.guild.id}`] = role.id;
     saveConfigs();
     message.reply(`Status-role configure sur <@&${role.id}> (cherche .gg/absolu dans le statut)`);
+  }
+
+  if (command === "setup-tickets") {
+    const salon = message.mentions.channels.first();
+    if (!salon || salon.type !== ChannelType.GuildText) {
+      return message.reply("Mentionne un salon texte valide.");
+    }
+    const role = message.mentions.roles.first();
+    if (!role) return message.reply("Mentionne un role staff.");
+
+    channelConfigs[`tickets_${message.guild.id}`] = {
+      channelId: salon.id,
+      staffRoleId: role.id,
+    };
+    saveConfigs();
+
+    const ticketEmbed = new EmbedBuilder()
+      .setColor("#2f3136")
+      .setTitle("Support")
+      .setDescription("Souhaite rejoindre le staff\n\nOuvrez un ticket en cliquant sur le bouton ci-dessous.")
+      .setTimestamp();
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("ticket_open")
+        .setLabel("Ouvrir un ticket")
+        .setStyle(ButtonStyle.Primary),
+    );
+
+    await salon.send({ embeds: [ticketEmbed], components: [row] });
+    message.reply(`Panel de tickets envoye dans <#${salon.id}> avec le role <@&${role.id}>`);
+  }
+
+  if (command === "ticket-close") {
+    const ticketData = ticketChannels.get(message.channel.id);
+    if (!ticketData) return message.reply("Ce n'est pas un salon de ticket.");
+
+    await message.channel.send("Ticket ferme dans 5 secondes...");
+    setTimeout(() => {
+      message.channel.delete().catch(() => {});
+    }, 5000);
   }
 });
 
@@ -280,6 +322,84 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+
+  if (interaction.isButton() && interaction.customId === "ticket_open") {
+    const config = channelConfigs[`tickets_${interaction.guild.id}`];
+    if (!config) return;
+
+    const ticketChannel = await interaction.guild.channels.create({
+      name: `ticket-${interaction.user.username}`,
+      type: ChannelType.GuildText,
+      parent: interaction.channel.parent,
+      permissionOverwrites: [
+        {
+          id: interaction.guild.roles.everyone,
+          deny: [PermissionsBitField.Flags.ViewChannel],
+        },
+        {
+          id: interaction.user.id,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory,
+          ],
+        },
+        {
+          id: config.staffRoleId,
+          allow: [
+            PermissionsBitField.Flags.ViewChannel,
+            PermissionsBitField.Flags.SendMessages,
+            PermissionsBitField.Flags.ReadMessageHistory,
+          ],
+        },
+      ],
+    });
+
+    ticketChannels.set(ticketChannel.id, {
+      userId: interaction.user.id,
+      staffRoleId: config.staffRoleId,
+    });
+
+    const ticketEmbed = new EmbedBuilder()
+      .setColor("#2f3136")
+      .setTitle(`Ticket de ${interaction.user.username}`)
+      .setDescription(`Bienvenue ${interaction.user} !\nDecris ta demande et le staff t'assistera.`)
+      .setTimestamp();
+
+    const closeRow = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("ticket_close")
+        .setLabel("Fermer le ticket")
+        .setStyle(ButtonStyle.Danger),
+    );
+
+    await ticketChannel.send({
+      content: `<@${interaction.user.id}> <@&${config.staffRoleId}>`,
+      embeds: [ticketEmbed],
+      components: [closeRow],
+    });
+
+    return interaction.reply({ content: `Ticket cree : ${ticketChannel}`, ephemeral: true });
+  }
+
+  if (interaction.isButton() && interaction.customId === "ticket_close") {
+    const ticketData = ticketChannels.get(interaction.channel.id);
+    if (!ticketData) return;
+
+    const isStaff = interaction.member.roles.cache.has(ticketData.staffRoleId);
+    const isOwner = interaction.user.id === ticketData.userId;
+    if (!isStaff && !isOwner) {
+      return interaction.reply({ content: "Tu ne peux pas fermer ce ticket.", ephemeral: true });
+    }
+
+    await interaction.channel.send("Ticket ferme dans 5 secondes...");
+    setTimeout(() => {
+      interaction.channel.delete().catch(() => {});
+    }, 5000);
+    ticketChannels.delete(interaction.channel.id);
+    return;
+  }
+
   const ownerId = tempChannels.get(interaction.channel?.id);
   if (!ownerId) return;
 
