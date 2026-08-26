@@ -36,12 +36,19 @@ client.once(Events.ClientReady, () => {
 
 client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
-  console.log(`Message de ${message.author.id}: ${message.content}`);
   if (message.author.id !== OWNER_ID) return;
   if (!message.content.startsWith(PREFIX)) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
+
+  if (command === "test") {
+    return message.reply("Ca marche !");
+  }
+
+  if (command === "help") {
+    return message.reply("Commandes: `!setup-vocal #salon`, `!setup-autorole @role`, `!test`");
+  }
 
   if (command === "setup-vocal") {
     const salon = message.mentions.channels.first();
