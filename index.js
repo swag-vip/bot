@@ -178,14 +178,18 @@ client.on(Events.MessageCreate, async (message) => {
     if (!salon || salon.type !== ChannelType.GuildText) {
       return message.reply("Mentionne un salon texte valide.");
     }
-    const role = message.mentions.roles.first();
-    if (!role) return message.reply("Mentionne un role staff.");
+    const roles = message.mentions.roles;
+    if (roles.size === 0) return message.reply("Mentionne au moins un role staff.");
+
+    const roleIds = roles.map(r => r.id);
 
     channelConfigs[`tickets_${message.guild.id}`] = {
       channelId: salon.id,
-      staffRoleId: role.id,
+      staffRoleIds: roleIds,
     };
     saveConfigs();
+
+    const roleList = roleIds.map(id => `<@&${id}>`).join(", ");
 
     const ticketEmbed = new EmbedBuilder()
       .setColor("#2f3136")
@@ -205,7 +209,7 @@ client.on(Events.MessageCreate, async (message) => {
     );
 
     await salon.send({ embeds: [ticketEmbed], components: [row] });
-    message.reply(`Panel de tickets envoye dans <#${salon.id}> avec le role <@&${role.id}>`);
+    message.reply(`Panel de tickets envoye dans <#${salon.id}> avec les roles : ${roleList}`);
   }
 
   if (command === "ticket-close") {
@@ -338,39 +342,46 @@ client.on(Events.InteractionCreate, async (interaction) => {
       suggestion: "Suggestion",
     };
 
+    const permOverwrites = [
+      {
+        id: interaction.guild.roles.everyone,
+        deny: [PermissionsBitField.Flags.ViewChannel],
+      },
+      {
+        id: interaction.user.id,
+        allow: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.SendMessages,
+          PermissionsBitField.Flags.ReadMessageHistory,
+        ],
+      },
+    ];
+
+    for (const roleId of config.staffRoleIds) {
+      permOverwrites.push({
+        id: roleId,
+        allow: [
+          PermissionsBitField.Flags.ViewChannel,
+          PermissionsBitField.Flags.SendMessages,
+          PermissionsBitField.Flags.ReadMessageHistory,
+        ],
+      });
+    }
+
     const ticketChannel = await interaction.guild.channels.create({
       name: `ticket-${choice}-${interaction.user.username}`,
       type: ChannelType.GuildText,
       parent: interaction.channel.parent,
-      permissionOverwrites: [
-        {
-          id: interaction.guild.roles.everyone,
-          deny: [PermissionsBitField.Flags.ViewChannel],
-        },
-        {
-          id: interaction.user.id,
-          allow: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages,
-            PermissionsBitField.Flags.ReadMessageHistory,
-          ],
-        },
-        {
-          id: config.staffRoleId,
-          allow: [
-            PermissionsBitField.Flags.ViewChannel,
-            PermissionsBitField.Flags.SendMessages,
-            PermissionsBitField.Flags.ReadMessageHistory,
-          ],
-        },
-      ],
+      permissionOverwrites: permOverwrites,
     });
 
     ticketChannels.set(ticketChannel.id, {
       userId: interaction.user.id,
-      staffRoleId: config.staffRoleId,
+      staffRoleIds: config.staffRoleIds,
       type: choice,
     });
+
+    const mentionRoles = config.staffRoleIds.map(id => `<@&${id}>`).join(" ");
 
     const ticketEmbed = new EmbedBuilder()
       .setColor("#2f3136")
@@ -386,7 +397,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     );
 
     await ticketChannel.send({
-      content: `<@${interaction.user.id}> <@&${config.staffRoleId}>`,
+      content: `<@${interaction.user.id}> ${mentionRoles}`,
       embeds: [ticketEmbed],
       components: [closeRow],
     });
@@ -398,7 +409,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const ticketData = ticketChannels.get(interaction.channel.id);
     if (!ticketData) return;
 
-    const isStaff = interaction.member.roles.cache.has(ticketData.staffRoleId);
+    const config = channelConfigs[`tickets_${interaction.guild.id}`];
+    const isStaff = config && config.staffRoleIds.some(roleId => interaction.member.roles.cache.has(roleId));
     const isOwner = interaction.user.id === ticketData.userId;
     if (!isStaff && !isOwner) {
       return interaction.reply({ content: "Tu ne peux pas fermer ce ticket.", ephemeral: true });
