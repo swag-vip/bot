@@ -53,6 +53,56 @@ function formatMinutes(min) {
   return `${d}j${rh > 0 ? rh + "h" : ""}`;
 }
 
+function buildLeaderboardEmbed(guildId) {
+  const stats = getStats(guildId);
+  const sorted = Object.entries(stats)
+    .map(([id, data]) => ({
+      id,
+      messages: data.messages || 0,
+      voiceMinutes: data.voiceMinutes || 0,
+      score: (data.messages || 0) + (data.voiceMinutes || 0),
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10);
+
+  const medals = ["", "", "", "4.", "5.", "6.", "7.", "8.", "9.", "10."];
+
+  let description = "";
+  if (sorted.length === 0) {
+    description = "Aucune donnee pour le moment.";
+  } else {
+    for (let i = 0; i < sorted.length; i++) {
+      const e = sorted[i];
+      description += `**${medals[i]}** <@${e.id}> - **${e.score}** pts (Messages: ${e.messages} | Voc: ${formatMinutes(e.voiceMinutes)})\n`;
+    }
+  }
+
+  return new EmbedBuilder()
+    .setColor("#ffd700")
+    .setTitle("Leaderboard")
+    .setDescription(description)
+    .setTimestamp();
+}
+
+async function updateLeaderboards() {
+  for (const [, guild] of client.guilds.cache) {
+    const channelId = channelConfigs[`leaderboard_${guild.id}`];
+    if (!channelId) continue;
+    try {
+      const channel = guild.channels.cache.get(channelId);
+      if (!channel) continue;
+      const messages = await channel.messages.fetch({ limit: 10 });
+      const botMsg = messages.find(m => m.author.id === client.user.id && m.embeds.length > 0 && m.embeds[0].title === "Leaderboard");
+      const embed = buildLeaderboardEmbed(guild.id);
+      if (botMsg) {
+        await botMsg.edit({ embeds: [embed] }).catch(() => {});
+      } else {
+        await channel.send({ embeds: [embed] }).catch(() => {});
+      }
+    } catch (err) {}
+  }
+}
+
 function loadConfigs() {
   try {
     if (fs.existsSync(DATA_FILE)) {
@@ -168,7 +218,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!leaderboard` - Classement\n`!rank` - Ton rang");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!leaderboard` - Classement\n`!rank` - Ton rang");
   }
 
   if (command === "setup-vocal") {
@@ -254,34 +304,22 @@ client.on(Events.MessageCreate, async (message) => {
     }, 5000);
   }
 
-  if (command === "leaderboard" || command === "lb") {
-    const stats = getStats(message.guild.id);
-    const sorted = Object.entries(stats)
-      .map(([id, data]) => ({
-        id,
-        messages: data.messages || 0,
-        voiceMinutes: data.voiceMinutes || 0,
-        score: (data.messages || 0) + (data.voiceMinutes || 0),
-      }))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 10);
-
-    if (sorted.length === 0) return message.reply("Aucune donnee pour le moment.");
-
-    const medals = ["", "", "", "4.", "5.", "6.", "7.", "8.", "9.", "10."];
-
-    let description = "";
-    for (let i = 0; i < sorted.length; i++) {
-      const e = sorted[i];
-      description += `**${medals[i]}** <@${e.id}> - **${e.score}** pts (Messages: ${e.messages} | Voc: ${formatMinutes(e.voiceMinutes)})\n`;
+  if (command === "setup-leaderboard") {
+    const salon = message.mentions.channels.first();
+    if (!salon || salon.type !== ChannelType.GuildText) {
+      return message.reply("Mentionne un salon texte valide.");
     }
 
-    const embed = new EmbedBuilder()
-      .setColor("#ffd700")
-      .setTitle("Leaderboard")
-      .setDescription(description)
-      .setTimestamp();
+    channelConfigs[`leaderboard_${message.guild.id}`] = salon.id;
+    saveConfigs();
 
+    const embed = buildLeaderboardEmbed(message.guild.id);
+    await salon.send({ embeds: [embed] });
+    message.reply(`Leaderboard auto active dans <#${salon.id}> (mis a jour toutes les 10 min)`);
+  }
+
+  if (command === "leaderboard" || command === "lb") {
+    const embed = buildLeaderboardEmbed(message.guild.id);
     message.reply({ embeds: [embed] });
   }
 
@@ -625,6 +663,7 @@ app.listen(3000, () => console.log("Serveur keep-alive actif sur le port 3000"))
 client.login(process.env.TOKEN);
 
 setInterval(() => {
+  updateLeaderboards();
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
     const token = process.env.GITHUB_TOKEN;
@@ -637,4 +676,4 @@ setInterval(() => {
     execSync("git diff --cached --quiet || git commit -m \"Update stats\"", { stdio: "ignore" });
     execSync("git push origin main", { stdio: "ignore" });
   } catch (err) {}
-}, 5 * 60 * 1000);
+}, 10 * 60 * 1000);
