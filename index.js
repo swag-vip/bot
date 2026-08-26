@@ -25,7 +25,6 @@ client.once(Events.ClientReady, () => {
 client.on(Events.MessageCreate, async (message) => {
   console.log(`Message de ${message.author.id}: ${message.content}`);
   if (message.author.bot) return;
-  if (message.author.id !== OWNER_ID) return;
   if (!message.content.startsWith(PREFIX)) return;
 
   const args = message.content.slice(PREFIX.length).trim().split(/ +/);
