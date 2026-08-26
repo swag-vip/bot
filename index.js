@@ -20,19 +20,6 @@ const channelConfigs = new Map();
 
 client.once(Events.ClientReady, () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
-  console.log(`Serveurs: ${client.guilds.cache.map(g => `${g.name} (${g.id})`).join(", ")}`);
-
-  const guild = client.guilds.cache.get(process.env.GUILD_ID);
-  if (guild) {
-    const channel = guild.channels.cache.find(c => c.isTextBased());
-    if (channel) {
-      channel.send("Bot en ligne ! Utilise `!setup-vocal #salon` pour configurer.").then(() => {
-        console.log("Message envoye !");
-      }).catch(err => {
-        console.error("Erreur envoi:", err);
-      });
-    }
-  }
 });
 
 client.on(Events.MessageCreate, async (message) => {
@@ -97,10 +84,6 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
     const category = newState.channel.parent;
     const permOverwrites = [
       {
-        id: guild.roles.everyone,
-        deny: [PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.ViewChannel],
-      },
-      {
         id: member.id,
         allow: [
           PermissionsBitField.Flags.Connect,
@@ -111,6 +94,9 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
           PermissionsBitField.Flags.DeafenMembers,
           PermissionsBitField.Flags.MoveMembers,
           PermissionsBitField.Flags.ManageChannels,
+          PermissionsBitField.Flags.ManageRoles,
+          PermissionsBitField.Flags.UseEmbeddedActivities,
+          PermissionsBitField.Flags.PrioritySpeaker,
         ],
       },
     ];
@@ -126,6 +112,7 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       name: `Solo de ${member.user.username}`,
       type: ChannelType.GuildVoice,
       parent: category ? category.id : null,
+      topic: `Salon personnel de ${member.user.username} | Toutes les permissions sont a toi !`,
       permissionOverwrites: permOverwrites,
     });
 
