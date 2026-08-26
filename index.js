@@ -53,7 +53,7 @@ function formatMinutes(min) {
   return `${d}j${rh > 0 ? rh + "h" : ""}`;
 }
 
-function buildLeaderboardEmbed(guildId) {
+function buildLeaderboardEmbed(guildId, guild) {
   const stats = getStats(guildId);
 
   const sortedMsg = Object.entries(stats)
@@ -66,41 +66,53 @@ function buildLeaderboardEmbed(guildId) {
     .sort((a, b) => b.voiceMinutes - a.voiceMinutes)
     .slice(0, 10);
 
-  const medals = ["", "", "", "4.", "5.", "6.", "7.", "8.", "9.", "10."];
+  function getName(id) {
+    if (!guild) return id;
+    const member = guild.members.cache.get(id);
+    return member ? member.user.username : id;
+  }
 
-  let descMsg = "";
-  if (sortedMsg.length === 0) {
-    descMsg = "Aucune donnee.";
-  } else {
-    for (let i = 0; i < sortedMsg.length; i++) {
+  let descMsg = "```ansi\n";
+  descMsg += "#   Membre                   Messages\n";
+  descMsg += "──────────────────────────────────────\n";
+  for (let i = 0; i < 10; i++) {
+    if (i < sortedMsg.length) {
       const e = sortedMsg[i];
-      descMsg += `**${medals[i]}** <@${e.id}> - **${e.messages}** messages\n`;
+      const num = `${i + 1}`.padStart(2, " ");
+      const name = getName(e.id).substring(0, 22);
+      const msgs = e.messages.toLocaleString().padStart(8, " ");
+      descMsg += `${num}   ${name.padEnd(22)} ${msgs}\n`;
+    } else {
+      const num = `${i + 1}`.padStart(2, " ");
+      descMsg += `${num}   -\n`;
     }
   }
+  descMsg += "```\n";
 
-  let descVoc = "";
-  if (sortedVoc.length === 0) {
-    descVoc = "Aucune donnee.";
-  } else {
-    for (let i = 0; i < sortedVoc.length; i++) {
+  let descVoc = "```ansi\n";
+  descVoc += "#   Membre                   Temps\n";
+  descVoc += "──────────────────────────────────────\n";
+  for (let i = 0; i < 10; i++) {
+    if (i < sortedVoc.length) {
       const e = sortedVoc[i];
-      descVoc += `**${medals[i]}** <@${e.id}> - **${formatMinutes(e.voiceMinutes)}**\n`;
+      const num = `${i + 1}`.padStart(2, " ");
+      const name = getName(e.id).substring(0, 22);
+      const time = formatMinutes(e.voiceMinutes).padStart(10, " ");
+      descVoc += `${num}   ${name.padEnd(22)} ${time}\n`;
+    } else {
+      const num = `${i + 1}`.padStart(2, " ");
+      descVoc += `${num}   -\n`;
     }
   }
+  descVoc += "```";
 
-  const embed1 = new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setColor("#000000")
-    .setTitle("Top Messages")
-    .setDescription(descMsg)
+    .setTitle("Leaderboard")
+    .setDescription(`${descMsg}${descVoc}`)
     .setTimestamp();
 
-  const embed2 = new EmbedBuilder()
-    .setColor("#000000")
-    .setTitle("Top Vocal")
-    .setDescription(descVoc)
-    .setTimestamp();
-
-  return [embed1, embed2];
+  return embed;
 }
 
 async function updateLeaderboards() {
@@ -112,11 +124,11 @@ async function updateLeaderboards() {
       if (!channel) continue;
       const messages = await channel.messages.fetch({ limit: 10 });
       const botMsg = messages.find(m => m.author.id === client.user.id);
-      const embeds = buildLeaderboardEmbed(guild.id);
+      const embed = buildLeaderboardEmbed(guild.id, guild);
       if (botMsg) {
-        await botMsg.edit({ embeds }).catch(() => {});
+        await botMsg.edit({ embeds: [embed] }).catch(() => {});
       } else {
-        await channel.send({ embeds }).catch(() => {});
+        await channel.send({ embeds: [embed] }).catch(() => {});
       }
     } catch (err) {}
   }
@@ -332,18 +344,18 @@ client.on(Events.MessageCreate, async (message) => {
     channelConfigs[`leaderboard_${message.guild.id}`] = salon.id;
     saveConfigs();
 
-    const embeds = buildLeaderboardEmbed(message.guild.id);
+    const embed = buildLeaderboardEmbed(message.guild.id, message.guild);
     const infoEmbed = new EmbedBuilder()
       .setColor("#000000")
       .setDescription("Le leaderboard se met a jour automatiquement toutes les 10 minutes.");
 
-    await salon.send({ embeds: [...embeds, infoEmbed] });
+    await salon.send({ embeds: [embed, infoEmbed] });
     message.reply(`Leaderboard auto active dans <#${salon.id}>`);
   }
 
   if (command === "leaderboard" || command === "lb") {
-    const embeds = buildLeaderboardEmbed(message.guild.id);
-    message.reply({ embeds });
+    const embed = buildLeaderboardEmbed(message.guild.id, message.guild);
+    message.reply({ embeds: [embed] });
   }
 
   if (command === "rank" || command === "rang") {
