@@ -124,13 +124,18 @@ async function updateLeaderboards() {
     try {
       const channel = guild.channels.cache.get(channelId);
       if (!channel) continue;
-      const messages = await channel.messages.fetch({ limit: 10 });
-      const botMsg = messages.find(m => m.author.id === client.user.id);
+      const messages = await channel.messages.fetch({ limit: 20 });
+      const botMsgs = messages.filter(m => m.author.id === client.user.id).sort((a, b) => b.createdTimestamp - a.createdTimestamp);
+      const leaderboardMsg = botMsgs.find(m => m.embeds.length > 0 && m.embeds[0].title === "Leaderboard");
       const embed = buildLeaderboardEmbed(guild.id, guild);
-      if (botMsg) {
-        await botMsg.edit({ embeds: [embed] }).catch(() => {});
+      const infoEmbed = new EmbedBuilder()
+        .setColor("#000000")
+        .setDescription("Le leaderboard se met a jour automatiquement toutes les 10 minutes.");
+
+      if (leaderboardMsg) {
+        await leaderboardMsg.edit({ embeds: [embed, infoEmbed] }).catch(() => {});
       } else {
-        await channel.send({ embeds: [embed] }).catch(() => {});
+        await channel.send({ embeds: [embed, infoEmbed] }).catch(() => {});
       }
     } catch (err) {}
   }
@@ -700,6 +705,17 @@ app.listen(3000, () => console.log("Serveur keep-alive actif sur le port 3000"))
 client.login(process.env.TOKEN);
 
 setInterval(() => {
+  for (const [key, joinTime] of voiceJoinTimes) {
+    const [guildId, userId] = key.split("_");
+    const member = client.guilds.cache.get(guildId)?.members.cache.get(userId);
+    if (member && member.voice.channel) {
+      const elapsed = Math.floor((Date.now() - joinTime) / 60000);
+      if (elapsed > 0) {
+        addVoiceTime(guildId, userId, elapsed);
+        voiceJoinTimes.set(key, Date.now());
+      }
+    }
+  }
   updateLeaderboards();
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
