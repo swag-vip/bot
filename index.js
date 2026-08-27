@@ -413,21 +413,25 @@ client.on(Events.MessageCreate, async (message) => {
       return message.reply("Usage: `!giveaway [duree] [nbr-gagnants] [prix]`\nExemple: `!giveaway 1h 1 Nitro`\nDuree: `10s`, `5m`, `2h`, `1d`");
     }
 
-    const durRaw = args[0];
+    const durRaw = args[0].toLowerCase();
     const winners = parseInt(args[1]);
     const prize = args.slice(2).join(" ");
 
-    const unit = durRaw.slice(-1);
-    const amount = parseInt(durRaw.slice(0, -1));
-    if (isNaN(amount) || amount <= 0) return message.reply("Duree invalide.");
+    const timeRegex = /(\d+)\s*(seconde?s?|min(?:ute)?s?|heure?s?|jour?s?|s|m|h|d|j)/g;
+    const matches = [...durRaw.matchAll(timeRegex)];
+    if (matches.length === 0) return message.reply("Duree invalide. Utilise `10s`, `5m`, `2h`, `1d`, `30 secondes`, `1 minute`, `1 heure`, `1 jour`...");
 
-    let ms;
-    if (unit === "s") ms = amount * 1000;
-    else if (unit === "m") ms = amount * 60000;
-    else if (unit === "h") ms = amount * 3600000;
-    else if (unit === "d") ms = amount * 86400000;
-    else return message.reply("Unite invalide. Utilise `s`, `m`, `h` ou `d`.");
+    let ms = 0;
+    for (const m of matches) {
+      const amount = parseInt(m[1]);
+      const unit = m[2];
+      if (unit.startsWith("seconde") || unit === "s") ms += amount * 1000;
+      else if (unit.startsWith("min") || unit === "m") ms += amount * 60000;
+      else if (unit.startsWith("heur") || unit === "h") ms += amount * 3600000;
+      else if (unit.startsWith("jour") || unit === "d" || unit === "j") ms += amount * 86400000;
+    }
 
+    if (ms <= 0) return message.reply("Duree invalide.");
     const endTime = Date.now() + ms;
 
     const gwEmbed = new EmbedBuilder()
