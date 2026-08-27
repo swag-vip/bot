@@ -130,7 +130,7 @@ async function updateLeaderboards() {
       const embed = buildLeaderboardEmbed(guild.id, guild);
       const infoEmbed = new EmbedBuilder()
         .setColor("#000000")
-        .setDescription("Le leaderboard se met a jour automatiquement toutes les 10 minutes.");
+        .setDescription("Le leaderboard se met a jour automatiquement toutes les 5 minutes.");
 
       if (leaderboardMsg) {
         await leaderboardMsg.edit({ embeds: [embed, infoEmbed] }).catch(() => {});
@@ -354,7 +354,7 @@ client.on(Events.MessageCreate, async (message) => {
     const embed = buildLeaderboardEmbed(message.guild.id, message.guild);
     const infoEmbed = new EmbedBuilder()
       .setColor("#000000")
-      .setDescription("Le leaderboard se met a jour automatiquement toutes les 10 minutes.");
+      .setDescription("Le leaderboard se met a jour automatiquement toutes les 5 minutes.");
 
     await salon.send({ embeds: [embed, infoEmbed] });
     message.reply(`Leaderboard auto active dans <#${salon.id}>`);
@@ -729,4 +729,4 @@ setInterval(() => {
     execSync("git diff --cached --quiet || git commit -m \"Update stats\"", { stdio: "ignore" });
     execSync("git push origin main", { stdio: "ignore" });
   } catch (err) {}
-}, 10 * 60 * 1000);
+}, 5 * 60 * 1000);
