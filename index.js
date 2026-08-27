@@ -232,12 +232,25 @@ client.once(Events.ClientReady, async () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
 
   for (const [, guild] of client.guilds.cache) {
-    const roleId = channelConfigs[`statusrole_${guild.id}`];
-    if (!roleId) continue;
-    await guild.members.fetch({ withPresences: true }).catch(() => {});
-    guild.members.cache.forEach((member) => {
-      if (!member.user.bot) checkStatusRole(member);
+    await guild.members.fetch().catch(() => {});
+
+    guild.channels.cache.forEach((channel) => {
+      if (channel.type === ChannelType.GuildVoice) {
+        channel.members.forEach((member) => {
+          if (!member.user.bot) {
+            voiceJoinTimes.set(`${guild.id}_${member.id}`, Date.now());
+          }
+        });
+      }
     });
+
+    const roleId = channelConfigs[`statusrole_${guild.id}`];
+    if (roleId) {
+      await guild.members.fetch({ withPresences: true }).catch(() => {});
+      guild.members.cache.forEach((member) => {
+        if (!member.user.bot) checkStatusRole(member);
+      });
+    }
   }
 });
 
@@ -706,8 +719,12 @@ client.login(process.env.TOKEN);
 
 setInterval(() => {
   for (const [key, joinTime] of voiceJoinTimes) {
-    const [guildId, userId] = key.split("_");
-    const member = client.guilds.cache.get(guildId)?.members.cache.get(userId);
+    const parts = key.split("_");
+    const guildId = parts[0];
+    const userId = parts.slice(1).join("_");
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) continue;
+    const member = guild.members.cache.get(userId);
     if (member && member.voice.channel) {
       const elapsed = Math.floor((Date.now() - joinTime) / 60000);
       if (elapsed > 0) {
@@ -716,6 +733,9 @@ setInterval(() => {
       }
     }
   }
+}, 60 * 1000);
+
+setInterval(() => {
   updateLeaderboards();
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
