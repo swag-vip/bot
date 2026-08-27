@@ -860,6 +860,9 @@ setInterval(() => {
     }
   }
   updateLeaderboards();
+}, 60 * 1000);
+
+setInterval(() => {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
     const token = process.env.GITHUB_TOKEN;
@@ -872,4 +875,4 @@ setInterval(() => {
     execSync("git diff --cached --quiet || git commit -m \"Update stats\"", { stdio: "ignore" });
     execSync("git push origin main", { stdio: "ignore" });
   } catch (err) {}
-}, 60 * 1000);
+}, 10 * 60 * 1000);
