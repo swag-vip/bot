@@ -17,12 +17,14 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildMessageReactions,
   ],
 });
 
 const tempChannels = new Map();
 const ticketChannels = new Map();
 const voiceJoinTimes = new Map();
+const giveaways = new Map();
 let channelConfigs = {};
 
 function getStats(guildId) {
@@ -405,6 +407,51 @@ client.on(Events.MessageCreate, async (message) => {
 
     message.reply({ embeds: [embed] });
   }
+
+  if (command === "giveaway") {
+    if (args.length < 3) {
+      return message.reply("Usage: `!giveaway [duree] [nbr-gagnants] [prix]`\nExemple: `!giveaway 1h 1 Nitro`\nDuree: `10s`, `5m`, `2h`, `1d`");
+    }
+
+    const durRaw = args[0];
+    const winners = parseInt(args[1]);
+    const prize = args.slice(2).join(" ");
+
+    const unit = durRaw.slice(-1);
+    const amount = parseInt(durRaw.slice(0, -1));
+    if (isNaN(amount) || amount <= 0) return message.reply("Duree invalide.");
+
+    let ms;
+    if (unit === "s") ms = amount * 1000;
+    else if (unit === "m") ms = amount * 60000;
+    else if (unit === "h") ms = amount * 3600000;
+    else if (unit === "d") ms = amount * 86400000;
+    else return message.reply("Unite invalide. Utilise `s`, `m`, `h` ou `d`.");
+
+    const endTime = Date.now() + ms;
+
+    const gwEmbed = new EmbedBuilder()
+      .setColor("#ff66aa")
+      .setTitle("🎉 GIVEAWAY 🎉")
+      .setDescription(`**Prix :** ${prize}\n\n**Participants :** 0\n**Temps restant :** ${durRaw}\n**Fin :** <t:${Math.floor(endTime / 1000)}:F>\n\nReagis avec 🎉 pour participer !`)
+      .setFooter({ text: `${winners} gagnant(s) · Lance par ${message.author.username}` })
+      .setTimestamp();
+
+    const gwMsg = await message.channel.send({ embeds: [gwEmbed] });
+    await gwMsg.react("🎉");
+
+    giveaways.set(gwMsg.id, {
+      messageId: gwMsg.id,
+      channelId: message.channel.id,
+      guildId: message.guild.id,
+      endTime,
+      winners,
+      prize,
+      hostId: message.author.id,
+    });
+
+    message.delete().catch(() => {});
+  }
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
@@ -717,6 +764,78 @@ client.on(Events.InteractionCreate, async (interaction) => {
 const app = express();
 app.get("/", (req, res) => res.send("Bot actif !"));
 app.listen(3000, () => console.log("Serveur keep-alive actif sur le port 3000"));
+
+setInterval(async () => {
+  const now = Date.now();
+  for (const [msgId, gw] of giveaways) {
+    if (now < gw.endTime) {
+      try {
+        const channel = client.guilds.cache.get(gw.guildId)?.channels.cache.get(gw.channelId);
+        if (!channel) continue;
+        const msg = await channel.messages.fetch(gw.messageId);
+        if (!msg) continue;
+        const reaction = msg.reactions.cache.get("🎉");
+        const participants = reaction ? reaction.count - 1 : 0;
+        const remaining = gw.endTime - now;
+        const secs = Math.floor(remaining / 1000);
+        const days = Math.floor(secs / 86400);
+        const hours = Math.floor((secs % 86400) / 3600);
+        const mins = Math.floor((secs % 3600) / 60);
+        const sec = secs % 60;
+        const timeStr = days > 0 ? `${days}j ${hours}h ${mins}m` : hours > 0 ? `${hours}h ${mins}m ${sec}s` : mins > 0 ? `${mins}m ${sec}s` : `${sec}s`;
+
+        const gwEmbed = new EmbedBuilder()
+          .setColor("#ff66aa")
+          .setTitle("🎉 GIVEAWAY 🎉")
+          .setDescription(`**Prix :** ${gw.prize}\n\n**Participants :** ${participants}\n**Temps restant :** ${timeStr}\n**Fin :** <t:${Math.floor(gw.endTime / 1000)}:F>\n\nReagis avec 🎉 pour participer !`)
+          .setFooter({ text: `${gw.winners} gagnant(s) · Lance par <@${gw.hostId}>` })
+          .setTimestamp();
+        await msg.edit({ embeds: [gwEmbed] }).catch(() => {});
+      } catch (err) {}
+      continue;
+    }
+
+    try {
+      giveaways.delete(msgId);
+      const channel = client.guilds.cache.get(gw.guildId)?.channels.cache.get(gw.channelId);
+      if (!channel) continue;
+      const msg = await channel.messages.fetch(gw.messageId);
+      if (!msg) continue;
+      const reaction = msg.reactions.cache.get("🎉");
+      const users = reaction ? await reaction.users.fetch() : null;
+      let participants = [];
+      if (users) {
+        users.forEach((u) => {
+          if (!u.bot) participants.push(u.id);
+        });
+      }
+
+      if (participants.length === 0) {
+        const embed = new EmbedBuilder()
+          .setColor("#ff66aa")
+          .setTitle("🎉 GIVEAWAY 🎉")
+          .setDescription(`**Prix :** ${gw.prize}\n\nAucun participant. Giveaway annule.`);
+        return msg.edit({ embeds: [embed] }).catch(() => {});
+      }
+
+      const winners = [];
+      for (let i = 0; i < Math.min(gw.winners, participants.length); i++) {
+        const idx = Math.floor(Math.random() * participants.length);
+        winners.push(participants.splice(idx, 1)[0]);
+      }
+
+      const winnerMentions = winners.map(w => `<@${w}>`).join(", ");
+      const embed = new EmbedBuilder()
+        .setColor("#ff66aa")
+        .setTitle("🎉 GIVEAWAY TERMINE 🎉")
+        .setDescription(`**Prix :** ${gw.prize}\n\n**Gagnant(s) :** ${winnerMentions}\n\nFelicitations !`)
+        .setTimestamp();
+
+      await msg.edit({ embeds: [embed] });
+      await channel.send(`🎉 Felicitations ${winnerMentions} ! Tu as gagne **${gw.prize}** !`);
+    } catch (err) {}
+  }
+}, 1000);
 
 client.login(process.env.TOKEN);
 
