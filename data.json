@@ -27,15 +27,15 @@
     },
     "618042706031280133": {
       "messages": 2,
-      "voiceMinutes": 425
+      "voiceMinutes": 426
     },
     "1377301118052208674": {
       "messages": 0,
-      "voiceMinutes": 425
+      "voiceMinutes": 426
     },
     "1391860474307411988": {
       "messages": 0,
-      "voiceMinutes": 425
+      "voiceMinutes": 426
     },
     "1273789435644743756": {
       "messages": 4,
@@ -276,6 +276,10 @@
     "1429542934256029718": {
       "messages": 0,
       "voiceMinutes": 14
+    },
+    "1433528713252966585": {
+      "messages": 1,
+      "voiceMinutes": 0
     }
   },
   "leaderboard_1541982371929260202": "1542298885580521584"
