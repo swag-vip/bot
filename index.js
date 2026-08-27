@@ -876,3 +876,40 @@ setInterval(() => {
     execSync("git push origin main", { stdio: "ignore" });
   } catch (err) {}
 }, 10 * 60 * 1000);
+
+const BOT_START_TIME = Date.now();
+const AUTO_RELAUNCH_MS = 3 * 60 * 60 * 1000 - 60 * 1000;
+
+async function autoRelaunch() {
+  console.log("[AutoRelaunch] Relance automatique dans 60s...");
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
+    const token = process.env.GITHUB_TOKEN;
+    if (token) {
+      const res = await fetch("https://api.github.com/repos/swag-vip/bot/actions/workflows/run-bot.yml/dispatches", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Accept": "application/vnd.github.v3+json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ref: "main" }),
+      });
+      if (res.ok) {
+        console.log("[AutoRelaunch] Nouveau workflow lance avec succes !");
+      } else {
+        console.log(`[AutoRelaunch] Echec lancement: ${res.status}`);
+      }
+    }
+  } catch (err) {
+    console.log("[AutoRelaunch] Erreur:", err.message);
+  }
+}
+
+setInterval(() => {
+  const elapsed = Date.now() - BOT_START_TIME;
+  if (elapsed >= AUTO_RELAUNCH_MS) {
+    autoRelaunch();
+    clearInterval(this);
+  }
+}, 60 * 1000);
