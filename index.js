@@ -164,7 +164,7 @@ function loadConfigs() {
 function saveConfigs() {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
-    const token = process.env.GITHUB_TOKEN;
+    const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
       execSync(`git remote set-url origin https://x-access-token:${token}@github.com/swag-vip/bot.git`, { stdio: "ignore" });
     }
@@ -865,7 +865,7 @@ setInterval(() => {
 setInterval(() => {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
-    const token = process.env.GITHUB_TOKEN;
+    const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
       execSync(`git remote set-url origin https://x-access-token:${token}@github.com/swag-vip/bot.git`, { stdio: "ignore" });
     }
@@ -884,7 +884,7 @@ async function autoRelaunch() {
   console.log("[AutoRelaunch] Relance automatique dans 60s...");
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
-    const token = process.env.GITHUB_TOKEN;
+    const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
       const res = await fetch("https://api.github.com/repos/swag-vip/bot/actions/workflows/run-bot.yml/dispatches", {
         method: "POST",
