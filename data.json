@@ -14,7 +14,7 @@
   },
   "stats_1541982371929260202": {
     "1532548944419229710": {
-      "messages": 213,
+      "messages": 215,
       "voiceMinutes": 199
     },
     "698560284134211630": {
@@ -22,7 +22,7 @@
       "voiceMinutes": 4
     },
     "1399123831377100903": {
-      "messages": 83,
+      "messages": 84,
       "voiceMinutes": 237
     },
     "618042706031280133": {
@@ -214,6 +214,10 @@
       "voiceMinutes": 8
     },
     "1155455289873674320": {
+      "messages": 4,
+      "voiceMinutes": 0
+    },
+    "1299626618402373642": {
       "messages": 3,
       "voiceMinutes": 0
     }
