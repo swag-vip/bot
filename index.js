@@ -733,9 +733,6 @@ setInterval(() => {
       }
     }
   }
-}, 60 * 1000);
-
-setInterval(() => {
   updateLeaderboards();
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
@@ -749,4 +746,4 @@ setInterval(() => {
     execSync("git diff --cached --quiet || git commit -m \"Update stats\"", { stdio: "ignore" });
     execSync("git push origin main", { stdio: "ignore" });
   } catch (err) {}
-}, 5 * 60 * 1000);
+}, 60 * 1000);
