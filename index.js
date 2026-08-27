@@ -7,6 +7,7 @@ const express = require("express");
 const OWNER_ID = "1532548944419229710";
 const PREFIX = "!";
 const DATA_FILE = "data.json";
+const BLACKLIST = ["618042706031280133", "1391860474307411988", "1377301118052208674"];
 
 const client = new Client({
   intents: [
@@ -57,11 +58,13 @@ function buildLeaderboardEmbed(guildId, guild) {
   const stats = getStats(guildId);
 
   const sortedMsg = Object.entries(stats)
+    .filter(([id]) => !BLACKLIST.includes(id))
     .map(([id, data]) => ({ id, messages: data.messages || 0 }))
     .sort((a, b) => b.messages - a.messages)
     .slice(0, 10);
 
   const sortedVoc = Object.entries(stats)
+    .filter(([id]) => !BLACKLIST.includes(id))
     .map(([id, data]) => ({ id, voiceMinutes: data.voiceMinutes || 0 }))
     .sort((a, b) => b.voiceMinutes - a.voiceMinutes)
     .slice(0, 10);
