@@ -56,6 +56,37 @@ function formatMinutes(min) {
   return `${d}j${rh > 0 ? rh + "h" : ""}`;
 }
 
+async function updateRoleCounter(channel, role, guild) {
+  if (!channel || !channel.isVoiceBased()) return;
+  const count = guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
+  await channel.setName(`Membres Absolu: ${count}`).catch(() => {});
+}
+
+async function updateVocCounter(channel, guild) {
+  if (!channel || !channel.isVoiceBased()) return;
+  let count = 0;
+  guild.channels.cache.forEach((c) => {
+    if (c.isVoiceBased()) count += c.members.size;
+  });
+  await channel.setName(`En vocal: ${count}`).catch(() => {});
+}
+
+async function updateAllCounters() {
+  for (const [, guild] of client.guilds.cache) {
+    const rc = channelConfigs[`rolecounter_${guild.id}`];
+    if (rc) {
+      const channel = guild.channels.cache.get(rc.channelId);
+      const role = guild.roles.cache.get(rc.roleId);
+      if (channel && role) await updateRoleCounter(channel, role, guild);
+    }
+    const vc = channelConfigs[`voccounter_${guild.id}`];
+    if (vc) {
+      const channel = guild.channels.cache.get(vc);
+      if (channel) await updateVocCounter(channel, guild);
+    }
+  }
+}
+
 function buildLeaderboardEmbed(guildId, guild) {
   const stats = getStats(guildId);
 
@@ -274,7 +305,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!leaderboard` - Classement\n`!rank` - Ton rang");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-voccounter #salon` - Compteur de membres en vocal\n`!leaderboard` - Classement\n`!rank` - Ton rang");
   }
 
   if (command === "setup-vocal") {
@@ -387,6 +418,32 @@ client.on(Events.MessageCreate, async (message) => {
     channelConfigs[`welcome_${message.guild.id}`] = salon.id;
     saveConfigs();
     message.reply(`Message de bienvenue actif dans <#${salon.id}>`);
+  }
+
+  if (command === "setup-rolecounter") {
+    const salon = message.mentions.channels.first();
+    if (!salon || salon.type !== ChannelType.GuildVoice) {
+      return message.reply("Mentionne un salon vocal valide.");
+    }
+    const role = message.mentions.roles.first();
+    if (!role) return message.reply("Mentionne un role.");
+
+    channelConfigs[`rolecounter_${message.guild.id}`] = { channelId: salon.id, roleId: role.id };
+    saveConfigs();
+    await updateRoleCounter(salon, role, message.guild);
+    message.reply(`Compteur de role configure sur <#${salon.id}> avec <@&${role.id}>`);
+  }
+
+  if (command === "setup-voccounter") {
+    const salon = message.mentions.channels.first();
+    if (!salon || salon.type !== ChannelType.GuildVoice) {
+      return message.reply("Mentionne un salon vocal valide.");
+    }
+
+    channelConfigs[`voccounter_${message.guild.id}`] = salon.id;
+    saveConfigs();
+    await updateVocCounter(salon, message.guild);
+    message.reply(`Compteur vocal configure sur <#${salon.id}>`);
   }
 
   if (command === "leaderboard" || command === "lb") {
@@ -890,6 +947,7 @@ setInterval(() => {
     }
   }
   updateLeaderboards();
+  updateAllCounters();
 }, 60 * 1000);
 
 setInterval(() => {
