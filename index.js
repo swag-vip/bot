@@ -478,7 +478,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
         const welcomeEmbed = new EmbedBuilder()
           .setColor("#000000")
           .setAuthor({ name: "Absolu", iconURL: member.guild.iconURL({ dynamic: true }) || null })
-          .setDescription(`Bienvenue sur **Absolu** ${member}\n\nSi personne te répond, reviens dans **20 min** !`)
+          .setDescription(`Bienvenue sur **Absolu** ${member}\n\nTu es le **${member.guild.memberCount}** membre du serveur !\n\nSi personne te répond, reviens dans **20 min** !`)
           .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 128 }))
           .setFooter({ text: `Membre ${member.guild.memberCount}` })
           .setTimestamp();
