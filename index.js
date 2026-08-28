@@ -908,7 +908,7 @@ setInterval(() => {
 }, 10 * 60 * 1000);
 
 const BOT_START_TIME = Date.now();
-const AUTO_RELAUNCH_MS = 3 * 60 * 60 * 1000 - 60 * 1000;
+const AUTO_RELAUNCH_MS = 3 * 60 * 60 * 1000 + 54 * 60 * 1000;
 
 async function autoRelaunch() {
   console.log("[AutoRelaunch] Relance automatique dans 60s...");
