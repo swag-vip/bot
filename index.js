@@ -24,6 +24,7 @@ const client = new Client({
 const tempChannels = new Map();
 const ticketChannels = new Map();
 const voiceJoinTimes = new Map();
+const voiceMemberCount = new Map();
 const giveaways = new Map();
 let channelConfigs = {};
 
@@ -64,10 +65,7 @@ async function updateRoleCounter(channel, role, guild) {
 
 async function updateVocCounter(channel, guild) {
   if (!channel || !channel.isVoiceBased()) return;
-  const count = guild.channels.cache.reduce((acc, c) => {
-    if (c.isVoiceBased()) acc += c.members.size;
-    return acc;
-  }, 0);
+  const count = voiceMemberCount.get(guild.id) || 0;
   await channel.setName(`En vocal: ${count}`).catch((e) => console.log("[VocCounter] Erreur rename:", e.message));
 }
 
@@ -292,8 +290,10 @@ client.once(Events.ClientReady, async () => {
   for (const [, guild] of client.guilds.cache) {
     await guild.members.fetch().catch(() => {});
 
+    let voiceCount = 0;
     guild.channels.cache.forEach((channel) => {
       if (channel.type === ChannelType.GuildVoice) {
+        voiceCount += channel.members.size;
         channel.members.forEach((member) => {
           if (!member.user.bot) {
             voiceJoinTimes.set(`${guild.id}_${member.id}`, Date.now());
@@ -301,6 +301,8 @@ client.once(Events.ClientReady, async () => {
         });
       }
     });
+    voiceMemberCount.set(guild.id, voiceCount);
+    updateAllCounters();
 
     const roleId = channelConfigs[`statusrole_${guild.id}`];
     if (roleId) {
@@ -613,6 +615,12 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   const guild = newState.guild || oldState.guild;
   const member = newState.member || oldState.member;
   if (member.user.bot) return;
+
+  if (!oldState.channel && newState.channel) {
+    voiceMemberCount.set(guild.id, (voiceMemberCount.get(guild.id) || 0) + 1);
+  } else if (oldState.channel && !newState.channel) {
+    voiceMemberCount.set(guild.id, Math.max(0, (voiceMemberCount.get(guild.id) || 0) - 1));
+  }
 
   updateAllCounters();
 
