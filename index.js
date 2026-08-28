@@ -180,20 +180,38 @@ async function updateLeaderboards() {
 function loadConfigs() {
   try {
     if (fs.existsSync(DATA_FILE)) {
-      channelConfigs = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+      const raw = fs.readFileSync(DATA_FILE, "utf8");
+      channelConfigs = JSON.parse(raw);
       console.log("[Config] Configs chargees");
     } else {
-      channelConfigs = {};
-      fs.writeFileSync(DATA_FILE, "{}");
+      if (fs.existsSync("data.backup.json")) {
+        channelConfigs = JSON.parse(fs.readFileSync("data.backup.json", "utf8"));
+        fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
+        console.log("[Config] Restaure depuis backup");
+      } else {
+        channelConfigs = {};
+        fs.writeFileSync(DATA_FILE, "{}");
+      }
     }
   } catch (err) {
     console.error("[Config] Erreur chargement:", err);
-    channelConfigs = {};
+    if (fs.existsSync("data.backup.json")) {
+      try {
+        channelConfigs = JSON.parse(fs.readFileSync("data.backup.json", "utf8"));
+        fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
+        console.log("[Config] Restaure depuis backup (erreur)");
+      } catch (e) {
+        channelConfigs = {};
+      }
+    } else {
+      channelConfigs = {};
+    }
   }
 }
 
 function saveConfigs() {
   try {
+    fs.writeFileSync("data.backup.json", JSON.stringify(channelConfigs, null, 2));
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
     const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
@@ -955,6 +973,7 @@ setInterval(() => {
 
 setInterval(() => {
   try {
+    fs.writeFileSync("data.backup.json", JSON.stringify(channelConfigs, null, 2));
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
     const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
@@ -974,6 +993,7 @@ const AUTO_RELAUNCH_MS = 3 * 60 * 60 * 1000 + 54 * 60 * 1000;
 async function autoRelaunch() {
   console.log("[AutoRelaunch] Relance automatique dans 60s...");
   try {
+    fs.writeFileSync("data.backup.json", JSON.stringify(channelConfigs, null, 2));
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
     const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
