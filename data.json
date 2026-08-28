@@ -14,8 +14,8 @@
   },
   "stats_1541982371929260202": {
     "1532548944419229710": {
-      "messages": 513,
-      "voiceMinutes": 1263
+      "messages": 514,
+      "voiceMinutes": 1271
     },
     "698560284134211630": {
       "messages": 0,
@@ -50,7 +50,7 @@
       "voiceMinutes": 82
     },
     "1490460232164446261": {
-      "messages": 2,
+      "messages": 3,
       "voiceMinutes": 0
     },
     "1033101114280788028": {
@@ -106,12 +106,12 @@
       "voiceMinutes": 0
     },
     "1440381424720154794": {
-      "messages": 412,
-      "voiceMinutes": 1413
+      "messages": 413,
+      "voiceMinutes": 1421
     },
     "1487818839042556067": {
       "messages": 257,
-      "voiceMinutes": 211
+      "voiceMinutes": 219
     },
     "1267488425796440217": {
       "messages": 38,
@@ -492,15 +492,5 @@
     "channelId": "1542705320541823026",
     "roleId": "1541982923778162728"
   },
-  "_giveaways": [
-    {
-      "messageId": "1542905170407723041",
-      "channelId": "1542555242472935485",
-      "guildId": "1541982371929260202",
-      "endTime": 1787942058000,
-      "winners": 1,
-      "prize": "nitro-boost",
-      "hostId": "1532548944419229710"
-    }
-  ]
+  "_giveaways": []
 }
