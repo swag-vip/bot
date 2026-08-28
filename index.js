@@ -66,7 +66,7 @@ async function updateVocCounter(channel, guild) {
   if (channel.name === newName) return;
 
   const last = lastVocRename.get(guild.id) || 0;
-  if (Date.now() - last < 15 * 60 * 1000) return;
+  if (Date.now() - last < 30 * 1000) return;
 
   console.log(`[VocCounter] rename ${channel.name} -> ${newName}`);
   try {
@@ -85,7 +85,7 @@ async function updateRoleCounter(channel, role, guild) {
   if (channel.name === newName) return;
 
   const last = lastRoleRename.get(guild.id) || 0;
-  if (Date.now() - last < 15 * 60 * 1000) return;
+  if (Date.now() - last < 30 * 1000) return;
 
   console.log(`[RoleCounter] rename ${channel.name} -> ${newName}`);
   try {
@@ -1072,3 +1072,4 @@ setInterval(() => {
     clearInterval(this);
   }
 }, 60 * 1000);
+
