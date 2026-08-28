@@ -75,16 +75,6 @@ async function updateRoleCounter(channel, role, guild) {
   }
 }
 
-async function bumpChannel(channel) {
-  if (!channel) return;
-  const embed = new EmbedBuilder()
-    .setColor("#5865F2")
-    .setTitle("📢 BUMP DISPONIBLE !")
-    .setDescription("Fais **`/bump`** avec **Disboard** pour remonter le serveur dans les resultats de recherche et attirer de nouveaux membres !\n\nTu peux tous les 2 heures.")
-    .setTimestamp();
-  await channel.send({ embeds: [embed] }).catch(() => {});
-}
-
 async function updateAllCounters() {
   for (const [, guild] of client.guilds.cache) {
     const rc = channelConfigs[`rolecounter_${guild.id}`];
@@ -469,7 +459,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-bump #salon` - Rappel bump toutes les 2h\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!snipe` - Snipe un emoji/sticker externe");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!snipe` - Snipe un emoji/sticker externe");
   }
 
   if (command === "setup-vocal") {
@@ -486,18 +476,6 @@ client.on(Events.MessageCreate, async (message) => {
     saveConfigs();
 
     message.reply(`Salon vocal perso configure sur <#${salon.id}>${role ? ` avec le role <@&${role.id}>` : ""}`);
-  }
-
-  if (command === "setup-bump") {
-    const salon = message.mentions.channels.first();
-    if (!salon || salon.type !== ChannelType.GuildText) {
-      return message.reply("Mentionne un salon texte valide.");
-    }
-
-    channelConfigs[`bump_${message.guild.id}`] = salon.id;
-    saveConfigs();
-    await bumpChannel(salon);
-    message.reply(`Rappel de bump actif toutes les 120 min dans <#${salon.id}>`);
   }
 
   if (command === "setup-autorole") {
@@ -1222,18 +1200,6 @@ setInterval(() => {
 setInterval(() => {
   updateAllCounters();
 }, 5 * 1000);
-
-setInterval(() => {
-  for (const [key, value] of Object.entries(channelConfigs)) {
-    if (key.startsWith("bump_")) {
-      const guildId = key.split("_")[1];
-      const guild = client.guilds.cache.get(guildId);
-      if (!guild) continue;
-      const channel = guild.channels.cache.get(value);
-      if (channel) bumpChannel(channel);
-    }
-  }
-}, 120 * 60 * 1000);
 
 setInterval(() => {
   try {
