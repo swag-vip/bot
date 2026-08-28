@@ -1100,7 +1100,15 @@ setInterval(async () => {
         const msg = await channel.messages.fetch(gw.messageId);
         if (!msg) continue;
         const reaction = msg.reactions.cache.get("🎉");
-        const participants = reaction ? reaction.count - 1 : 0;
+        let participants = 0;
+        if (reaction) {
+          try {
+            const users = await reaction.users.fetch();
+            participants = users.filter(u => !u.bot).size;
+          } catch {
+            participants = reaction.count > 0 ? reaction.count - 1 : 0;
+          }
+        }
         const remaining = gw.endTime - now;
         const secs = Math.floor(remaining / 1000);
         const days = Math.floor(secs / 86400);
