@@ -64,7 +64,11 @@ async function updateRoleCounter(channel, role, guild) {
 
 async function updateVocCounter(channel, guild) {
   if (!channel || !channel.isVoiceBased()) return;
-  channel.edit({ name: `En vocal: ${guild.members.cache.filter(m => m.voice.channelId).size}` }).catch(() => {});
+  const count = guild.channels.cache.reduce((acc, c) => {
+    if (c.isVoiceBased()) acc += c.members.size;
+    return acc;
+  }, 0);
+  await channel.setName(`En vocal: ${count}`).catch((e) => console.log("[VocCounter] Erreur rename:", e.message));
 }
 
 async function updateAllCounters() {
