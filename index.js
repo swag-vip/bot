@@ -57,19 +57,6 @@ function formatMinutes(min) {
   return `${d}j${rh > 0 ? rh + "h" : ""}`;
 }
 
-async function updateVocCounter(channel, guild) {
-  if (!channel || !channel.isVoiceBased()) return;
-  const count = guild.members.cache.filter(m => m.voice.channelId).size;
-  const newName = `En vocal: ${count}`;
-  if (channel.name === newName) return;
-  console.log(`[VocCounter] rename ${channel.name} -> ${newName}`);
-  try {
-    await channel.setName(newName);
-  } catch (e) {
-    console.log("[VocCounter] Erreur rename:", e.message);
-  }
-}
-
 async function updateRoleCounter(channel, role, guild) {
   if (!channel || !channel.isVoiceBased()) return;
   const count = guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
@@ -95,11 +82,6 @@ async function updateAllCounters() {
       const channel = guild.channels.cache.get(rc.channelId);
       const role = guild.roles.cache.get(rc.roleId);
       if (channel && role) updateRoleCounter(channel, role, guild);
-    }
-    const vc = channelConfigs[`voccounter_${guild.id}`];
-    if (vc) {
-      const channel = guild.channels.cache.get(vc);
-      if (channel) updateVocCounter(channel, guild);
     }
   }
 }
@@ -344,21 +326,8 @@ client.on(Events.MessageCreate, async (message) => {
     return message.reply("Ca marche !");
   }
 
-  if (command === "testname") {
-    const vc = channelConfigs[`voccounter_${message.guild.id}`];
-    if (!vc) return message.reply("Pas de voccounter configure.");
-    const ch = message.guild.channels.cache.get(vc);
-    if (!ch) return message.reply("Salon introuvable.");
-    try {
-      const res = await ch.edit({ name: "TEST RENAME" });
-      return message.reply(`Rename OK -> salon maintenant "${res.name}"`);
-    } catch (e) {
-      return message.reply(`Rename ECHEC: ${e.message}`);
-    }
-  }
-
   if (command === "help") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-voccounter #salon` - Compteur de membres en vocal\n`!leaderboard` - Classement\n`!rank` - Ton rang");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!leaderboard` - Classement\n`!rank` - Ton rang");
   }
 
   if (command === "setup-vocal") {
@@ -485,18 +454,6 @@ client.on(Events.MessageCreate, async (message) => {
     saveConfigs();
     await updateRoleCounter(salon, role, message.guild);
     message.reply(`Compteur de role configure sur <#${salon.id}> avec <@&${role.id}>`);
-  }
-
-  if (command === "setup-voccounter") {
-    const salon = message.mentions.channels.first();
-    if (!salon || salon.type !== ChannelType.GuildVoice) {
-      return message.reply("Mentionne un salon vocal valide.");
-    }
-
-    channelConfigs[`voccounter_${message.guild.id}`] = salon.id;
-    saveConfigs();
-    await updateVocCounter(salon, message.guild);
-    message.reply(`Compteur vocal configure sur <#${salon.id}>`);
   }
 
   if (command === "leaderboard" || command === "lb") {
