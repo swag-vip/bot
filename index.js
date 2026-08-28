@@ -61,16 +61,17 @@ function formatMinutes(min) {
 
 async function updateVocCounter(channel, guild) {
   if (!channel || !channel.isVoiceBased()) return;
+  const fresh = guild.channels.cache.get(channel.id) || channel;
   const count = voiceMemberCount.get(guild.id) || 0;
   const newName = `En vocal: ${count}`;
-  if (channel.name === newName) return;
+  if (fresh.name === newName) return;
 
   const last = lastVocRename.get(guild.id) || 0;
   if (Date.now() - last < 30 * 1000) return;
 
-  console.log(`[VocCounter] rename ${channel.name} -> ${newName}`);
+  console.log(`[VocCounter] rename#${fresh.id} ${fresh.name} -> ${newName}`);
   try {
-    await channel.setName(newName);
+    await fresh.edit({ name: newName });
     lastVocRename.set(guild.id, Date.now());
     voiceMemberCount.set(guild.id, count);
   } catch (e) {
@@ -353,6 +354,19 @@ client.on(Events.MessageCreate, async (message) => {
 
   if (command === "test") {
     return message.reply("Ca marche !");
+  }
+
+  if (command === "testname") {
+    const vc = channelConfigs[`voccounter_${message.guild.id}`];
+    if (!vc) return message.reply("Pas de voccounter configure.");
+    const ch = message.guild.channels.cache.get(vc);
+    if (!ch) return message.reply("Salon introuvable.");
+    try {
+      const res = await ch.edit({ name: "TEST RENAME" });
+      return message.reply(`Rename OK -> salon maintenant "${res.name}"`);
+    } catch (e) {
+      return message.reply(`Rename ECHEC: ${e.message}`);
+    }
   }
 
   if (command === "help") {
