@@ -327,7 +327,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!leaderboard` - Classement\n`!rank` - Ton rang");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!snipe` - Snipe un emoji/sticker externe");
   }
 
   if (command === "setup-vocal") {
@@ -484,6 +484,72 @@ client.on(Events.MessageCreate, async (message) => {
       .setTimestamp();
 
     message.reply({ embeds: [embed] });
+  }
+
+  if (command === "snipe") {
+    if (!message.reference?.messageId) {
+      return message.reply("Reponds a un message qui contient un emoji externe ou un sticker avec `!snipe`.");
+    }
+
+    let target;
+    try {
+      target = await message.channel.messages.fetch(message.reference.messageId);
+    } catch (e) {
+      return message.reply("Impossible de recuperer le message auquel tu reponds.");
+    }
+
+    const done = [];
+    const errors = [];
+
+    const emojiRegex = /<a?:(.+?):(\d+)>/g;
+    let match;
+    let isAnimated = false;
+    let foundEmojiId = null;
+    let foundEmojiName = "snipe";
+    while ((match = emojiRegex.exec(target.content || "")) !== null) {
+      foundEmojiId = match[2];
+      foundEmojiName = match[1] || "snipe";
+      isAnimated = match[0]?.startsWith("<a:");
+      break;
+    }
+
+    if (foundEmojiId) {
+      const name = foundEmojiName.slice(0, 30) || "snipe";
+      try {
+        const ext = isAnimated ? "gif" : "png";
+        const imgRes = await fetch(`https://cdn.discordapp.com/emojis/${foundEmojiId}.${ext}`);
+        const buf = Buffer.from(await imgRes.arrayBuffer());
+        const created = await message.guild.emojis.create({ attachment: buf, name });
+        done.push(`Emoji \`${created.name}\` ajoute !`);
+      } catch (e) {
+        errors.push(`Emoji: ${e.message}`);
+      }
+    }
+
+    if (target.stickers && target.stickers.size > 0) {
+      for (const sticker of target.stickers.values()) {
+        try {
+          const imgRes = await fetch(sticker.url);
+          const buf = Buffer.from(await imgRes.arrayBuffer());
+          const created = await message.guild.stickers.create({
+            file: buf,
+            name: sticker.name || "snipe",
+            tags: sticker.tags || "snipe",
+            description: sticker.description || null,
+          });
+          done.push(`Sticker \`${created.name}\` ajoute !`);
+        } catch (e) {
+          errors.push(`Sticker: ${e.message}`);
+        }
+      }
+    }
+
+    if (done.length === 0 && errors.length === 0) {
+      return message.reply("Aucun emoji externe ou sticker detecte dans ce message.");
+    }
+
+    const replyText = [...done, ...errors.map(e => `❌ ${e}`)].join("\n");
+    return message.reply(replyText);
   }
 
   if (command === "giveaway") {
