@@ -64,11 +64,7 @@ async function updateRoleCounter(channel, role, guild) {
 
 async function updateVocCounter(channel, guild) {
   if (!channel || !channel.isVoiceBased()) return;
-  let count = 0;
-  guild.channels.cache.forEach((c) => {
-    if (c.isVoiceBased()) count += c.members.size;
-  });
-  await channel.setName(`En vocal: ${count}`).catch(() => {});
+  channel.edit({ name: `En vocal: ${guild.members.cache.filter(m => m.voice.channelId).size}` }).catch(() => {});
 }
 
 async function updateAllCounters() {
@@ -77,12 +73,12 @@ async function updateAllCounters() {
     if (rc) {
       const channel = guild.channels.cache.get(rc.channelId);
       const role = guild.roles.cache.get(rc.roleId);
-      if (channel && role) await updateRoleCounter(channel, role, guild);
+      if (channel && role) updateRoleCounter(channel, role, guild);
     }
     const vc = channelConfigs[`voccounter_${guild.id}`];
     if (vc) {
       const channel = guild.channels.cache.get(vc);
-      if (channel) await updateVocCounter(channel, guild);
+      if (channel) updateVocCounter(channel, guild);
     }
   }
 }
@@ -609,6 +605,8 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   const guild = newState.guild || oldState.guild;
   const member = newState.member || oldState.member;
   if (member.user.bot) return;
+
+  updateAllCounters();
 
   if (oldState.channel && !newState.channel) {
     const joinTime = voiceJoinTimes.get(`${guild.id}_${member.id}`);
