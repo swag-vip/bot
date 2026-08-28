@@ -251,6 +251,57 @@ function loadGiveaways() {
   }
 }
 
+async function scanGiveawaysFromChannels(client) {
+  let found = 0;
+  for (const [, guild] of client.guilds.cache) {
+    for (const [, channel] of guild.channels.cache) {
+      if (channel.type !== ChannelType.GuildText) continue;
+      let messages;
+      try {
+        messages = await channel.messages.fetch({ limit: 100 });
+      } catch {
+        continue;
+      }
+      for (const [, msg] of messages) {
+        if (giveaways.has(msg.id)) continue;
+        if (!msg.author || msg.author.id !== client.user.id) continue;
+        const embed = msg.embeds && msg.embeds[0];
+        if (!embed || embed.title !== "🎉 GIVEAWAY 🎉" || !embed.footer) continue;
+        if (embed.description && /TERMINE|annule/i.test(embed.description)) continue;
+
+        const desc = embed.description || "";
+        let endTime = 0;
+        const finMatch = desc.match(/<t:(\d+):F>/);
+        if (finMatch) endTime = parseInt(finMatch[1], 10) * 1000;
+        const now = Date.now();
+        if (!endTime || endTime <= now) continue;
+
+        const winnersMatch = (embed.footer.text || "").match(/(\d+) gagnant/);
+        const winners = winnersMatch ? parseInt(winnersMatch[1], 10) : 1;
+        const hostMatch = (embed.footer.text || "").match(/<@(\d+)>/);
+        const hostId = hostMatch ? hostMatch[1] : null;
+        const prizeMatch = desc.match(/\*\*Prix :\*\*\s*(.+)/);
+        const prize = prizeMatch ? prizeMatch[1].trim() : "Prix";
+
+          giveaways.set(msg.id, {
+            messageId: msg.id,
+            channelId: msg.channel.id,
+            guildId: guild.id,
+            endTime,
+            winners,
+            prize,
+            hostId,
+          });
+          found++;
+      }
+    }
+  }
+  if (found > 0) {
+    console.log(`[Giveaways] ${found} giveaway(s) retrouve(s) par scan`);
+    persistGiveaways();
+  }
+}
+
 function saveConfigs() {
   try {
     fs.writeFileSync("config.json", JSON.stringify(channelConfigs, null, 2));
@@ -355,6 +406,8 @@ client.once(Events.ClientReady, async () => {
       });
     }
   }
+
+  await scanGiveawaysFromChannels(client);
 });
 
 client.on(Events.MessageCreate, async (message) => {
