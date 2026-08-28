@@ -217,10 +217,44 @@ function loadConfigs() {
   }
 }
 
+const GIVEAWAYS_FILE = "giveaways.json";
+
+function writeDataFile() {
+  const data = JSON.parse(JSON.stringify(channelConfigs || {}));
+  data["_giveaways"] = [...giveaways.values()];
+  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+}
+
+function persistGiveaways() {
+  try {
+    fs.writeFileSync(GIVEAWAYS_FILE, JSON.stringify([...giveaways.values()], null, 2));
+  } catch (err) {}
+  try {
+    writeDataFile();
+  } catch (err) {}
+}
+
+function loadGiveaways() {
+  try {
+    const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf8"));
+    const arr = data["_giveaways"];
+    if (Array.isArray(arr)) {
+      arr.forEach((gw) => {
+        if (gw && gw.endTime > Date.now()) {
+          giveaways.set(gw.messageId, gw);
+        }
+      });
+      console.log(`[Giveaways] ${giveaways.size} giveaway(s) restaure(s)`);
+    }
+  } catch (err) {
+    console.log("[Giveaways] Erreur chargement:", err.message);
+  }
+}
+
 function saveConfigs() {
   try {
     fs.writeFileSync("config.json", JSON.stringify(channelConfigs, null, 2));
-    fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
+    writeDataFile();
     const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
       execSync(`git remote set-url origin https://x-access-token:${token}@github.com/swag-vip/bot.git`, { stdio: "ignore" });
@@ -242,6 +276,7 @@ function saveConfigs() {
 }
 
 loadConfigs();
+loadGiveaways();
 
 function buildPanel(member) {
   const embed = new EmbedBuilder()
@@ -620,6 +655,7 @@ client.on(Events.MessageCreate, async (message) => {
       hostId: message.author.id,
     });
 
+    persistGiveaways();
     message.delete().catch(() => {});
   }
 });
@@ -990,6 +1026,7 @@ setInterval(async () => {
 
     try {
       giveaways.delete(msgId);
+      persistGiveaways();
       const channel = client.guilds.cache.get(gw.guildId)?.channels.cache.get(gw.channelId);
       if (!channel) continue;
       const msg = await channel.messages.fetch(gw.messageId);
@@ -1070,7 +1107,7 @@ setInterval(() => {
 setInterval(() => {
   try {
     fs.writeFileSync("config.json", JSON.stringify(channelConfigs, null, 2));
-    fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
+    writeDataFile();
     const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
       execSync(`git remote set-url origin https://x-access-token:${token}@github.com/swag-vip/bot.git`, { stdio: "ignore" });
@@ -1095,7 +1132,7 @@ async function autoRelaunch() {
   console.log("[AutoRelaunch] Relance automatique dans 60s...");
   try {
     fs.writeFileSync("config.json", JSON.stringify(channelConfigs, null, 2));
-    fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
+    writeDataFile();
     const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
       const res = await fetch("https://api.github.com/repos/swag-vip/bot/actions/workflows/run-bot.yml/dispatches", {
