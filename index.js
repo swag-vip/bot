@@ -274,7 +274,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!leaderboard` - Classement\n`!rank` - Ton rang");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!leaderboard` - Classement\n`!rank` - Ton rang");
   }
 
   if (command === "setup-vocal") {
@@ -378,6 +378,17 @@ client.on(Events.MessageCreate, async (message) => {
     message.reply(`Leaderboard auto active dans <#${salon.id}>`);
   }
 
+  if (command === "setup-welcome") {
+    const salon = message.mentions.channels.first();
+    if (!salon || salon.type !== ChannelType.GuildText) {
+      return message.reply("Mentionne un salon texte valide.");
+    }
+
+    channelConfigs[`welcome_${message.guild.id}`] = salon.id;
+    saveConfigs();
+    message.reply(`Message de bienvenue actif dans <#${salon.id}>`);
+  }
+
   if (command === "leaderboard" || command === "lb") {
     const embed = buildLeaderboardEmbed(message.guild.id, message.guild);
     message.reply({ embeds: [embed] });
@@ -459,6 +470,25 @@ client.on(Events.MessageCreate, async (message) => {
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
+  const welcomeChannelId = channelConfigs[`welcome_${member.guild.id}`];
+  if (welcomeChannelId) {
+    try {
+      const channel = member.guild.channels.cache.get(welcomeChannelId);
+      if (channel) {
+        const welcomeEmbed = new EmbedBuilder()
+          .setColor("#000000")
+          .setAuthor({ name: "Absolu", iconURL: member.guild.iconURL({ dynamic: true }) || null })
+          .setDescription(`Bienvenue sur **Absolu** ${member}\n\nSi personne te répond, reviens dans **20 min** !`)
+          .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 128 }))
+          .setFooter({ text: `Membre ${member.guild.memberCount}` })
+          .setTimestamp();
+        await channel.send({ content: `${member}`, embeds: [welcomeEmbed] });
+      }
+    } catch (err) {
+      console.error("Erreur message de bienvenue:", err);
+    }
+  }
+
   const roleId = channelConfigs[`autorole_${member.guild.id}`];
   if (!roleId) return;
   try {
