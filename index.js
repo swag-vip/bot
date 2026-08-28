@@ -24,8 +24,6 @@ const client = new Client({
 const tempChannels = new Map();
 const ticketChannels = new Map();
 const voiceJoinTimes = new Map();
-const voiceMemberCount = new Map();
-const lastVocRename = new Map();
 const lastRoleRename = new Map();
 const giveaways = new Map();
 let channelConfigs = {};
@@ -61,19 +59,12 @@ function formatMinutes(min) {
 
 async function updateVocCounter(channel, guild) {
   if (!channel || !channel.isVoiceBased()) return;
-  const fresh = guild.channels.cache.get(channel.id) || channel;
-  const count = voiceMemberCount.get(guild.id) || 0;
+  const count = guild.members.cache.filter(m => m.voice.channelId).size;
   const newName = `En vocal: ${count}`;
-  if (fresh.name === newName) return;
-
-  const last = lastVocRename.get(guild.id) || 0;
-  if (Date.now() - last < 30 * 1000) return;
-
-  console.log(`[VocCounter] rename#${fresh.id} ${fresh.name} -> ${newName}`);
+  if (channel.name === newName) return;
+  console.log(`[VocCounter] rename ${channel.name} -> ${newName}`);
   try {
-    await fresh.edit({ name: newName });
-    lastVocRename.set(guild.id, Date.now());
-    voiceMemberCount.set(guild.id, count);
+    await channel.setName(newName);
   } catch (e) {
     console.log("[VocCounter] Erreur rename:", e.message);
   }
@@ -318,10 +309,8 @@ client.once(Events.ClientReady, async () => {
   for (const [, guild] of client.guilds.cache) {
     await guild.members.fetch().catch(() => {});
 
-    let voiceCount = 0;
     guild.channels.cache.forEach((channel) => {
       if (channel.type === ChannelType.GuildVoice) {
-        voiceCount += channel.members.size;
         channel.members.forEach((member) => {
           if (!member.user.bot) {
             voiceJoinTimes.set(`${guild.id}_${member.id}`, Date.now());
@@ -329,7 +318,6 @@ client.once(Events.ClientReady, async () => {
         });
       }
     });
-    voiceMemberCount.set(guild.id, voiceCount);
     updateAllCounters();
 
     const roleId = channelConfigs[`statusrole_${guild.id}`];
@@ -658,12 +646,6 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   if (member.user.bot) return;
 
   console.log(`[VoiceUpdate] ${member.user.tag}: ${oldState.channelId} -> ${newState.channelId}`);
-
-  if (!oldState.channel && newState.channel) {
-    voiceMemberCount.set(guild.id, (voiceMemberCount.get(guild.id) || 0) + 1);
-  } else if (oldState.channel && !newState.channel) {
-    voiceMemberCount.set(guild.id, Math.max(0, (voiceMemberCount.get(guild.id) || 0) - 1));
-  }
 
   updateAllCounters();
 
