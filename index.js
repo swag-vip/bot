@@ -756,6 +756,37 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
+client.on(Events.MessageReactionAdd, async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.emoji.name !== "🎉") return;
+  if (!giveaways.has(reaction.message.id)) return;
+  const gw = giveaways.get(reaction.message.id);
+  const now = Date.now();
+  if (now >= gw.endTime) return;
+  try {
+    await reaction.fetch();
+    const participants = reaction.count > 1 ? reaction.count - 1 : 0;
+    const channel = client.guilds.cache.get(gw.guildId)?.channels.cache.get(gw.channelId);
+    if (!channel) return;
+    const msg = await channel.messages.fetch(reaction.message.id);
+    if (!msg) return;
+    const remaining = gw.endTime - now;
+    const secs = Math.floor(remaining / 1000);
+    const days = Math.floor(secs / 86400);
+    const hours = Math.floor((secs % 86400) / 3600);
+    const mins = Math.floor((secs % 3600) / 60);
+    const sec = secs % 60;
+    const timeStr = days > 0 ? `${days}j ${hours}h ${mins}m` : hours > 0 ? `${hours}h ${mins}m ${sec}s` : mins > 0 ? `${mins}m ${sec}s` : `${sec}s`;
+    const gwEmbed = new EmbedBuilder()
+      .setColor("#ff66aa")
+      .setTitle("🎉 GIVEAWAY 🎉")
+      .setDescription(`**Prix :** ${gw.prize}\n\n**Participants :** ${participants}\n**Temps restant :** ${timeStr}\n**Fin :** <t:${Math.floor(gw.endTime / 1000)}:F>\n\nReagis avec 🎉 pour participer !`)
+      .setFooter({ text: `${gw.winners} gagnant(s) · Lance par <@${gw.hostId}>` })
+      .setTimestamp();
+    await msg.edit({ embeds: [gwEmbed] }).catch(() => {});
+  } catch (err) {}
+});
+
 client.on(Events.GuildMemberAdd, async (member) => {
   const welcomeChannelId = channelConfigs[`welcome_${member.guild.id}`];
   if (welcomeChannelId) {
@@ -1100,15 +1131,7 @@ setInterval(async () => {
         const msg = await channel.messages.fetch(gw.messageId);
         if (!msg) continue;
         const reaction = msg.reactions.cache.get("🎉");
-        let participants = 0;
-        if (reaction) {
-          try {
-            const users = await reaction.users.fetch();
-            participants = users.filter(u => !u.bot).size;
-          } catch {
-            participants = reaction.count > 0 ? reaction.count - 1 : 0;
-          }
-        }
+        const participants = reaction && reaction.count > 1 ? reaction.count - 1 : 0;
         const remaining = gw.endTime - now;
         const secs = Math.floor(remaining / 1000);
         const days = Math.floor(secs / 86400);
