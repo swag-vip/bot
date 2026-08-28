@@ -59,7 +59,7 @@ function formatMinutes(min) {
 async function updateRoleCounter(channel, role, guild) {
   if (!channel || !channel.isVoiceBased()) return;
   const count = guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
-  await channel.setName(`Membres Absolu: ${count}`).catch(() => {});
+  await channel.setName(`Membres: ${count}`).catch(() => {});
 }
 
 async function updateVocCounter(channel, guild) {
@@ -947,8 +947,11 @@ setInterval(() => {
     }
   }
   updateLeaderboards();
-  updateAllCounters();
 }, 60 * 1000);
+
+setInterval(() => {
+  updateAllCounters();
+}, 5 * 1000);
 
 setInterval(() => {
   try {
