@@ -25,6 +25,8 @@ const tempChannels = new Map();
 const ticketChannels = new Map();
 const voiceJoinTimes = new Map();
 const voiceMemberCount = new Map();
+const lastVocRename = new Map();
+const lastRoleRename = new Map();
 const giveaways = new Map();
 let channelConfigs = {};
 
@@ -62,8 +64,18 @@ async function updateVocCounter(channel, guild) {
   const count = voiceMemberCount.get(guild.id) || 0;
   const newName = `En vocal: ${count}`;
   if (channel.name === newName) return;
+
+  const last = lastVocRename.get(guild.id) || 0;
+  if (Date.now() - last < 15 * 60 * 1000) return;
+
   console.log(`[VocCounter] rename ${channel.name} -> ${newName}`);
-  await channel.setName(newName).catch((e) => console.log("[VocCounter] Erreur rename:", e.message));
+  try {
+    await channel.setName(newName);
+    lastVocRename.set(guild.id, Date.now());
+    voiceMemberCount.set(guild.id, count);
+  } catch (e) {
+    console.log("[VocCounter] Erreur rename:", e.message);
+  }
 }
 
 async function updateRoleCounter(channel, role, guild) {
@@ -71,8 +83,17 @@ async function updateRoleCounter(channel, role, guild) {
   const count = guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
   const newName = `Membres: ${count}`;
   if (channel.name === newName) return;
+
+  const last = lastRoleRename.get(guild.id) || 0;
+  if (Date.now() - last < 15 * 60 * 1000) return;
+
   console.log(`[RoleCounter] rename ${channel.name} -> ${newName}`);
-  await channel.setName(newName).catch((e) => console.log("[RoleCounter] Erreur rename:", e.message));
+  try {
+    await channel.setName(newName);
+    lastRoleRename.set(guild.id, Date.now());
+  } catch (e) {
+    console.log("[RoleCounter] Erreur rename:", e.message);
+  }
 }
 
 async function updateAllCounters() {
