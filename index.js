@@ -177,29 +177,28 @@ function loadConfigs() {
   try {
     if (fs.existsSync(DATA_FILE)) {
       const raw = fs.readFileSync(DATA_FILE, "utf8");
-      channelConfigs = JSON.parse(raw);
-      console.log("[Config] Configs chargees");
-    } else {
-      if (fs.existsSync("data.backup.json")) {
-        channelConfigs = JSON.parse(fs.readFileSync("data.backup.json", "utf8"));
-        fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
-        console.log("[Config] Restaure depuis backup");
+      if (raw && raw.trim() !== "") {
+        channelConfigs = JSON.parse(raw);
+        console.log("[Config] Configs chargees");
       } else {
-        channelConfigs = {};
-        fs.writeFileSync(DATA_FILE, "{}");
+        throw new Error("fichier vide");
       }
+    } else {
+      throw new Error("fichier absent");
     }
   } catch (err) {
-    console.error("[Config] Erreur chargement:", err);
-    if (fs.existsSync("data.backup.json")) {
-      try {
-        channelConfigs = JSON.parse(fs.readFileSync("data.backup.json", "utf8"));
+    console.error("[Config] Erreur chargement, tentative backup:", err.message);
+    try {
+      if (fs.existsSync("config.json")) {
+        channelConfigs = JSON.parse(fs.readFileSync("config.json", "utf8"));
         fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
-        console.log("[Config] Restaure depuis backup (erreur)");
-      } catch (e) {
+        console.log("[Config] Restaure depuis config.json");
+      } else {
         channelConfigs = {};
+        fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
+        fs.writeFileSync("config.json", "{}");
       }
-    } else {
+    } catch (e) {
       channelConfigs = {};
     }
   }
@@ -207,7 +206,7 @@ function loadConfigs() {
 
 function saveConfigs() {
   try {
-    fs.writeFileSync("data.backup.json", JSON.stringify(channelConfigs, null, 2));
+    fs.writeFileSync("config.json", JSON.stringify(channelConfigs, null, 2));
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
     const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
@@ -217,7 +216,12 @@ function saveConfigs() {
     execSync("git config user.email \"bot@bot.com\"", { stdio: "ignore" });
     execSync("git add data.json", { stdio: "ignore" });
     execSync("git diff --cached --quiet || git commit -m \"Update config\"", { stdio: "ignore" });
-    execSync("git push origin main", { stdio: "ignore" });
+    try {
+      execSync("git push origin main", { stdio: "ignore" });
+    } catch (e) {
+      execSync("git pull --rebase origin main", { stdio: "ignore" });
+      execSync("git push origin main", { stdio: "ignore" });
+    }
     console.log("[Config] Configs sauvegardees");
   } catch (err) {
     console.error("[Config] Erreur sauvegarde:", err.message);
@@ -971,7 +975,7 @@ setInterval(() => {
 
 setInterval(() => {
   try {
-    fs.writeFileSync("data.backup.json", JSON.stringify(channelConfigs, null, 2));
+    fs.writeFileSync("config.json", JSON.stringify(channelConfigs, null, 2));
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
     const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
@@ -981,7 +985,12 @@ setInterval(() => {
     execSync("git config user.email \"bot@bot.com\"", { stdio: "ignore" });
     execSync("git add data.json", { stdio: "ignore" });
     execSync("git diff --cached --quiet || git commit -m \"Update stats\"", { stdio: "ignore" });
-    execSync("git push origin main", { stdio: "ignore" });
+    try {
+      execSync("git push origin main", { stdio: "ignore" });
+    } catch (e) {
+      execSync("git pull --rebase origin main", { stdio: "ignore" });
+      execSync("git push origin main", { stdio: "ignore" });
+    }
   } catch (err) {}
 }, 10 * 60 * 1000);
 
@@ -991,7 +1000,7 @@ const AUTO_RELAUNCH_MS = 3 * 60 * 60 * 1000 + 54 * 60 * 1000;
 async function autoRelaunch() {
   console.log("[AutoRelaunch] Relance automatique dans 60s...");
   try {
-    fs.writeFileSync("data.backup.json", JSON.stringify(channelConfigs, null, 2));
+    fs.writeFileSync("config.json", JSON.stringify(channelConfigs, null, 2));
     fs.writeFileSync(DATA_FILE, JSON.stringify(channelConfigs, null, 2));
     const token = process.env.PAT_TOKEN || process.env.GITHUB_TOKEN;
     if (token) {
