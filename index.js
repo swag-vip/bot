@@ -60,15 +60,19 @@ function formatMinutes(min) {
 async function updateVocCounter(channel, guild) {
   if (!channel || !channel.isVoiceBased()) return;
   const count = voiceMemberCount.get(guild.id) || 0;
-  console.log(`[VocCounter] rename ${channel.name} -> En vocal: ${count}`);
-  await channel.setName(`En vocal: ${count}`).catch((e) => console.log("[VocCounter] Erreur rename:", e.message));
+  const newName = `En vocal: ${count}`;
+  if (channel.name === newName) return;
+  console.log(`[VocCounter] rename ${channel.name} -> ${newName}`);
+  await channel.setName(newName).catch((e) => console.log("[VocCounter] Erreur rename:", e.message));
 }
 
 async function updateRoleCounter(channel, role, guild) {
   if (!channel || !channel.isVoiceBased()) return;
   const count = guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
-  console.log(`[RoleCounter] rename ${channel.name} -> Membres: ${count}`);
-  await channel.setName(`Membres: ${count}`).catch((e) => console.log("[RoleCounter] Erreur rename:", e.message));
+  const newName = `Membres: ${count}`;
+  if (channel.name === newName) return;
+  console.log(`[RoleCounter] rename ${channel.name} -> ${newName}`);
+  await channel.setName(newName).catch((e) => console.log("[RoleCounter] Erreur rename:", e.message));
 }
 
 async function updateAllCounters() {
