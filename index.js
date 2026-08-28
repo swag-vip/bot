@@ -302,6 +302,48 @@ async function scanGiveawaysFromChannels(client) {
   }
 }
 
+async function scanTempState(client) {
+  let tFound = 0;
+  for (const [, guild] of client.guilds.cache) {
+    for (const [, channel] of guild.channels.cache) {
+      if (channel.type === ChannelType.GuildVoice && channel.name.startsWith("Solo de ")) {
+        if (channel.members.size === 0) {
+          try {
+            await channel.delete();
+            console.log(`[TempVoice] Salon vide supprime: ${channel.name}`);
+          } catch {}
+        } else {
+          const username = channel.name.slice("Solo de ".length).trim();
+          const owner = channel.members.find((m) => m.user.username === username);
+          if (owner) {
+            tempChannels.set(channel.id, owner.id);
+            tFound++;
+          }
+        }
+      }
+
+      if (channel.type === ChannelType.GuildText && channel.name.startsWith("ticket-")) {
+        let userId = null;
+        const staffRoleIds = [];
+        for (const [, perm] of channel.permissionOverwrites.cache) {
+          if (perm.deny.has(PermissionsBitField.Flags.ViewChannel) && perm.id === guild.roles.everyone.id) continue;
+          if (perm.type === 1) {
+            if (perm.allow.has(PermissionsBitField.Flags.ViewChannel) && perm.id !== client.user.id) {
+              const isRole = guild.roles.cache.has(perm.id);
+              if (isRole) staffRoleIds.push(perm.id);
+              else userId = perm.id;
+            }
+          }
+        }
+        const type = channel.name.includes("staff") ? "staff" : channel.name.includes("support") ? "support" : "suggestion";
+        ticketChannels.set(channel.id, { userId, staffRoleIds, type });
+        tFound++;
+      }
+    }
+  }
+  if (tFound > 0) console.log(`[TempState] ${tFound} salon(s) tempo/ticket restaure(s)`);
+}
+
 function saveConfigs() {
   try {
     fs.writeFileSync("config.json", JSON.stringify(channelConfigs, null, 2));
@@ -408,6 +450,7 @@ client.once(Events.ClientReady, async () => {
   }
 
   await scanGiveawaysFromChannels(client);
+  await scanTempState(client);
 });
 
 client.on(Events.MessageCreate, async (message) => {
