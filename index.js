@@ -221,13 +221,14 @@ const GIVEAWAYS_FILE = "giveaways.json";
 
 function writeDataFile() {
   const data = JSON.parse(JSON.stringify(channelConfigs || {}));
-  data["_giveaways"] = [...giveaways.values()];
+  data["_giveaways"] = [...giveaways.values()].map(({ _lastEdited, ...gw }) => gw);
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 }
 
 function persistGiveaways() {
   try {
-    fs.writeFileSync(GIVEAWAYS_FILE, JSON.stringify([...giveaways.values()], null, 2));
+    const clean = [...giveaways.values()].map(({ _lastEdited, ...gw }) => gw);
+    fs.writeFileSync(GIVEAWAYS_FILE, JSON.stringify(clean, null, 2));
   } catch (err) {}
   try {
     writeDataFile();
@@ -1146,7 +1147,10 @@ setInterval(async () => {
           .setDescription(`**Prix :** ${gw.prize}\n\n**Participants :** ${participants}\n**Temps restant :** ${timeStr}\n**Fin :** <t:${Math.floor(gw.endTime / 1000)}:F>\n\nReagis avec 🎉 pour participer !`)
           .setFooter({ text: `${gw.winners} gagnant(s) · Lance par <@${gw.hostId}>` })
           .setTimestamp();
-        await msg.edit({ embeds: [gwEmbed] }).catch(() => {});
+        if (gw._lastEdited !== timeStr) {
+          await msg.edit({ embeds: [gwEmbed] }).catch(() => {});
+          gw._lastEdited = timeStr;
+        }
       } catch (err) {}
       continue;
     }
@@ -1192,7 +1196,7 @@ setInterval(async () => {
       await channel.send(`🎉 Felicitations ${winnerMentions} ! Tu as gagne **${gw.prize}** !`);
     } catch (err) {}
   }
-}, 1000);
+}, 10000);
 
 client.login(process.env.TOKEN);
 
