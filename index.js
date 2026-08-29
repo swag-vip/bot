@@ -58,12 +58,12 @@ function formatMinutes(min) {
 
 async function updateRoleCounter(channel, role, guild) {
   if (!channel || !channel.isVoiceBased()) return;
-  const count = guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
+  const count = role.members.size;
   const newName = `Membres: ${count}`;
   if (channel.name === newName) return;
 
   const last = lastRoleRename.get(guild.id) || 0;
-  if (Date.now() - last < 30 * 1000) return;
+  if (Date.now() - last < 60 * 1000) return;
 
   console.log(`[RoleCounter] rename ${channel.name} -> ${newName}`);
   try {
@@ -74,13 +74,23 @@ async function updateRoleCounter(channel, role, guild) {
   }
 }
 
+const lastMembersFetch = new Map();
+
 async function updateAllCounters() {
   for (const [, guild] of client.guilds.cache) {
     const rc = channelConfigs[`rolecounter_${guild.id}`];
     if (rc) {
       const channel = guild.channels.cache.get(rc.channelId);
       const role = guild.roles.cache.get(rc.roleId);
-      if (channel && role) updateRoleCounter(channel, role, guild);
+      if (!channel || !role) continue;
+      const lastFetch = lastMembersFetch.get(guild.id) || 0;
+      if (Date.now() - lastFetch > 10 * 60 * 1000) {
+        try {
+          await guild.members.fetch();
+          lastMembersFetch.set(guild.id, Date.now());
+        } catch (e) {}
+      }
+      updateRoleCounter(channel, role, guild);
     }
   }
 }
@@ -824,13 +834,14 @@ client.on(Events.GuildMemberAdd, async (member) => {
       const channel = member.guild.channels.cache.get(welcomeChannelId);
       if (channel) {
         const rc = channelConfigs[`rolecounter_${member.guild.id}`];
-        const autoroleId = channelConfigs[`autorole_${member.guild.id}`];
         let roleCount = null;
         if (rc) {
           const role = member.guild.roles.cache.get(rc.roleId);
           if (role) {
-            roleCount = member.guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
-            if (autoroleId === rc.roleId) roleCount += 1;
+            try {
+              await member.guild.members.fetch();
+            } catch (e) {}
+            roleCount = role.members.size;
           }
         }
         const count = roleCount !== null ? roleCount : member.guild.memberCount;
