@@ -84,6 +84,38 @@ async function sendLog(guild, category, embed) {
   } catch (e) {}
 }
 
+async function sendTicketTranscript(channel, reason) {
+  if (!channel || !channel.guild) return;
+  const cfg = channelConfigs[`logs_${channel.guild.id}`];
+  if (!cfg || !cfg.tickets) return;
+  const logChannel = channel.guild.channels.cache.get(cfg.tickets);
+  if (!logChannel) return;
+
+  let messages = [];
+  try {
+    messages = [...(await channel.messages.fetch({ limit: 100 })).values()].reverse();
+  } catch (e) {}
+
+  if (messages.length === 0) return;
+
+  const lines = [`TRANSCRIPT - ${channel.name}`, `Ferme par: ${reason}`, `Date: ${new Date().toLocaleString("fr-FR")}`, `Nombre de messages: ${messages.length}`, "", "=".repeat(40), ""];
+  for (const msg of messages) {
+    const author = msg.author ? msg.author.tag : "Inconnu";
+    const time = new Date(msg.createdTimestamp).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    let content = msg.content || "";
+    if (msg.attachments.size > 0) content += (content ? " " : "") + msg.attachments.map(a => a.url).join(" ");
+    if (msg.embeds.length > 0) content += (content ? " " : "") + "[embed]";
+    lines.push(`[${time}] ${author}: ${content || "(vide)"}`);
+  }
+
+  try {
+    await logChannel.send({
+      content: `Transcript du ticket **${channel.name}** (${messages.length} messages)`,
+      files: [{ attachment: Buffer.from(lines.join("\n"), "utf8"), name: `transcript-${channel.name}.txt` }],
+    });
+  } catch (e) {}
+}
+
 const lastMembersFetch = new Map();
 
 async function updateAllCounters() {
@@ -631,6 +663,7 @@ client.on(Events.MessageCreate, async (message) => {
       .setDescription(`Ticket **${message.channel.name}** ferme par ${message.author}`)
       .setTimestamp();
     sendLog(message.guild, "tickets", embed);
+    await sendTicketTranscript(message.channel, message.author.tag);
 
     await message.channel.send("Ticket ferme dans 5 secondes...");
     setTimeout(() => {
@@ -1207,6 +1240,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .setDescription(`Ticket **${interaction.channel.name}** ferme par ${interaction.user}`)
       .setTimestamp();
     sendLog(interaction.guild, "tickets", embed);
+    await sendTicketTranscript(interaction.channel, interaction.user.tag);
     setTimeout(() => {
       interaction.channel.delete().catch(() => {});
     }, 1000);
