@@ -772,12 +772,21 @@ client.on(Events.GuildMemberAdd, async (member) => {
     try {
       const channel = member.guild.channels.cache.get(welcomeChannelId);
       if (channel) {
+        const rc = channelConfigs[`rolecounter_${member.guild.id}`];
+        let roleCount = null;
+        if (rc) {
+          const role = member.guild.roles.cache.get(rc.roleId);
+          if (role) roleCount = member.guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
+        }
+        const countText = roleCount !== null
+          ? `Tu es membre de la **communauté Absolu** (${roleCount} membre${roleCount > 1 ? "s" : ""}) !`
+          : `Tu es le **${member.guild.memberCount}** membre du serveur !`;
         const welcomeEmbed = new EmbedBuilder()
           .setColor("#000000")
           .setAuthor({ name: "Absolu", iconURL: member.guild.iconURL({ dynamic: true }) || null })
-          .setDescription(`Bienvenue sur **Absolu** ${member}\n\nTu es le **${member.guild.memberCount}** membre du serveur !\n\nSi personne te répond, reviens dans **20 min** !`)
+          .setDescription(`Bienvenue sur **Absolu** ${member}\n\n${countText}\n\nSi personne te répond, reviens dans **20 min** !`)
           .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 128 }))
-          .setFooter({ text: `Membre ${member.guild.memberCount}` })
+          .setFooter({ text: roleCount !== null ? `${roleCount} membres communaute` : `Membre ${member.guild.memberCount}` })
           .setTimestamp();
         await channel.send({ content: `${member}`, embeds: [welcomeEmbed] });
       }
@@ -1004,10 +1013,10 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({ content: "Tu ne peux pas fermer ce ticket.", ephemeral: true });
     }
 
-    await interaction.channel.send("Ticket ferme dans 5 secondes...");
+    await interaction.channel.send("Ticket ferme dans 1 seconde...");
     setTimeout(() => {
       interaction.channel.delete().catch(() => {});
-    }, 5000);
+    }, 1000);
     ticketChannels.delete(interaction.channel.id);
     return;
   }
