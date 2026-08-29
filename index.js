@@ -74,6 +74,16 @@ async function updateRoleCounter(channel, role, guild) {
   }
 }
 
+async function sendLog(guild, category, embed) {
+  try {
+    const cfg = channelConfigs[`logs_${guild.id}`];
+    if (!cfg || !cfg[category]) return;
+    const channel = guild.channels.cache.get(cfg[category]);
+    if (!channel) return;
+    await channel.send({ embeds: [embed] });
+  } catch (e) {}
+}
+
 const lastMembersFetch = new Map();
 
 async function updateAllCounters() {
@@ -493,7 +503,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help" && prefixUsed === "!") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs #voice #messages #tickets #boost` - Salons de logs\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
   }
 
   if (command === "help" && prefixUsed === "+") {
@@ -615,6 +625,13 @@ client.on(Events.MessageCreate, async (message) => {
     const ticketData = ticketChannels.get(message.channel.id);
     if (!ticketData) return message.reply("Ce n'est pas un salon de ticket.");
 
+    const embed = new EmbedBuilder()
+      .setColor("#e74c3c")
+      .setAuthor({ name: message.author.tag, iconURL: message.author.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`Ticket **${message.channel.name}** ferme par ${message.author}`)
+      .setTimestamp();
+    sendLog(message.guild, "tickets", embed);
+
     await message.channel.send("Ticket ferme dans 5 secondes...");
     setTimeout(() => {
       message.channel.delete().catch(() => {});
@@ -662,6 +679,23 @@ client.on(Events.MessageCreate, async (message) => {
     saveConfigs();
     await updateRoleCounter(salon, role, message.guild);
     message.reply(`Compteur de role configure sur <#${salon.id}> avec <@&${role.id}>`);
+  }
+
+  if (command === "setup-logs") {
+    const salons = message.mentions.channels.filter(c => c.type === ChannelType.GuildText);
+    if (salons.size < 1 || salons.size > 4) {
+      return message.reply("Usage: `!setup-logs #voice-logs #messages-logs #ticket-logs #boost-logs`\nTu peux en mettre moins de 4, l'ordre compte : voice, messages, tickets, boost.");
+    }
+    const ids = salons.map(c => c.id);
+    const config = {
+      voice: ids[0] || null,
+      messages: ids[1] || null,
+      tickets: ids[2] || null,
+      boost: ids[3] || null,
+    };
+    channelConfigs[`logs_${message.guild.id}`] = config;
+    saveConfigs();
+    message.reply(`Salons de logs configures:\nVoice: ${config.voice ? `<#${config.voice}>` : "non configure"}\nMessages: ${config.messages ? `<#${config.messages}>` : "non configure"}\nTickets: ${config.tickets ? `<#${config.tickets}>` : "non configure"}\nBoost: ${config.boost ? `<#${config.boost}>` : "non configure"}`);
   }
 
   if (command === "leaderboard" || command === "lb") {
@@ -811,6 +845,36 @@ client.on(Events.MessageCreate, async (message) => {
   }
 });
 
+client.on(Events.MessageDelete, async (msg) => {
+  if (!msg.guild) return;
+  if (msg.author && msg.author.bot) return;
+  const embed = new EmbedBuilder()
+    .setColor("#e67e22")
+    .setAuthor({ name: msg.author ? msg.author.tag : "Inconnu", iconURL: msg.author ? msg.author.displayAvatarURL({ dynamic: true }) : null })
+    .setDescription(`Message supprime dans <#${msg.channel.id}>`)
+    .addFields({ name: "Contenu", value: msg.content || "*pas de contenu*" })
+    .setFooter({ text: `ID: ${msg.id}` })
+    .setTimestamp();
+  sendLog(msg.guild, "messages", embed);
+});
+
+client.on(Events.MessageUpdate, async (oldMsg, newMsg) => {
+  if (!oldMsg.guild) return;
+  if (oldMsg.author && oldMsg.author.bot) return;
+  if (oldMsg.content === newMsg.content) return;
+  const embed = new EmbedBuilder()
+    .setColor("#e67e22")
+    .setAuthor({ name: oldMsg.author ? oldMsg.author.tag : "Inconnu", iconURL: oldMsg.author ? oldMsg.author.displayAvatarURL({ dynamic: true }) : null })
+    .setDescription(`Message modifie dans <#${oldMsg.channel.id}>`)
+    .addFields(
+      { name: "Avant", value: oldMsg.content || "*pas de contenu*" },
+      { name: "Apres", value: newMsg.content || "*pas de contenu*" },
+    )
+    .setFooter({ text: `ID: ${oldMsg.id}` })
+    .setTimestamp();
+  sendLog(oldMsg.guild, "messages", embed);
+});
+
 client.on(Events.MessageReactionAdd, async (reaction, user) => {
   if (user.bot) return;
   if (reaction.emoji.name !== "🎉") return;
@@ -840,6 +904,17 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
       .setTimestamp();
     await msg.edit({ embeds: [gwEmbed] }).catch(() => {});
   } catch (err) {}
+});
+
+client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
+  if (!oldMember.premiumSince && newMember.premiumSince) {
+    const embed = new EmbedBuilder()
+      .setColor("#f47fff")
+      .setAuthor({ name: newMember.user.tag, iconURL: newMember.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`${newMember} a **boost** le serveur !`)
+      .setTimestamp();
+    sendLog(newMember.guild, "boost", embed);
+  }
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
@@ -945,6 +1020,29 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
       if (minutes > 0) addVoiceTime(guild.id, member.id, minutes);
     }
     voiceJoinTimes.set(`${guild.id}_${member.id}`, Date.now());
+  }
+
+  if (oldState.channel && !newState.channel) {
+    const embed = new EmbedBuilder()
+      .setColor("#e74c3c")
+      .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`${member} a **quitte** le vocal <#${oldState.channel.id}>`)
+      .setTimestamp();
+    sendLog(guild, "voice", embed);
+  } else if (!oldState.channel && newState.channel) {
+    const embed = new EmbedBuilder()
+      .setColor("#2ecc71")
+      .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`${member} a **rejoint** le vocal <#${newState.channel.id}>`)
+      .setTimestamp();
+    sendLog(guild, "voice", embed);
+  } else if (oldState.channel && newState.channel && oldState.channel.id !== newState.channel.id) {
+    const embed = new EmbedBuilder()
+      .setColor("#3498db")
+      .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`${member} a **change** de vocal: <#${oldState.channel.id}> -> <#${newState.channel.id}>`)
+      .setTimestamp();
+    sendLog(guild, "voice", embed);
   }
 
   const config = channelConfigs[guild.id];
@@ -1058,6 +1156,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
       type: choice,
     });
 
+    const logEmbed = new EmbedBuilder()
+      .setColor("#2ecc71")
+      .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`Ticket **${ticketChannel.name}** ouvert par ${interaction.user} (type: ${labels[choice]})`)
+      .setTimestamp();
+    sendLog(interaction.guild, "tickets", logEmbed);
+
     const mentionRoles = config.staffRoleIds.map(id => `<@&${id}>`).join(" ");
 
     const ticketEmbed = new EmbedBuilder()
@@ -1094,6 +1199,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
 
     await interaction.channel.send("Ticket ferme dans 1 seconde...");
+    const embed = new EmbedBuilder()
+      .setColor("#e74c3c")
+      .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`Ticket **${interaction.channel.name}** ferme par ${interaction.user}`)
+      .setTimestamp();
+    sendLog(interaction.guild, "tickets", embed);
     setTimeout(() => {
       interaction.channel.delete().catch(() => {});
     }, 1000);
