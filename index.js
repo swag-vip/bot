@@ -785,7 +785,12 @@ client.on(Events.GuildMemberAdd, async (member) => {
         let roleCount = null;
         if (rc) {
           const role = member.guild.roles.cache.get(rc.roleId);
-          if (role) roleCount = member.guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
+          if (role) {
+            roleCount = member.guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
+            const cached = member.guild.members.cache.get(member.id);
+            const counted = cached ? cached.roles.cache.has(role.id) : false;
+            if (member.roles.cache.has(role.id) && !counted) roleCount += 1;
+          }
         }
         const count = roleCount !== null ? roleCount : member.guild.memberCount;
         const welcomeEmbed = new EmbedBuilder()
