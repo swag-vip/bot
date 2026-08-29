@@ -503,7 +503,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help" && prefixUsed === "!") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs #voice #messages #tickets #boost` - Salons de logs\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs <categorie> #salon` - Logs (voice/messages/tickets/boost)\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
   }
 
   if (command === "help" && prefixUsed === "+") {
@@ -682,20 +682,22 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "setup-logs") {
-    const salons = message.mentions.channels.filter(c => c.type === ChannelType.GuildText);
-    if (salons.size < 1 || salons.size > 4) {
-      return message.reply("Usage: `!setup-logs #voice-logs #messages-logs #ticket-logs #boost-logs`\nTu peux en mettre moins de 4, l'ordre compte : voice, messages, tickets, boost.");
+    const type = args[0] && args[0].toLowerCase();
+    const salon = message.mentions.channels.first();
+    const validTypes = ["voice", "messages", "tickets", "boost"];
+
+    if (!type || !salon || salon.type !== ChannelType.GuildText) {
+      return message.reply("Usage: `!setup-logs <categorie> #salon`\nCategories: `voice`, `messages`, `tickets`, `boost`\nExemple: `!setup-logs voice #voice-logs`\nRefais la commande pour chaque categorie avec son salon de ton choix.");
     }
-    const ids = salons.map(c => c.id);
-    const config = {
-      voice: ids[0] || null,
-      messages: ids[1] || null,
-      tickets: ids[2] || null,
-      boost: ids[3] || null,
-    };
+
+    if (!validTypes.includes(type)) {
+      return message.reply(`Categorie invalide. Categories: \`${validTypes.join("`, `")}\``);
+    }
+
+    const config = { ...(channelConfigs[`logs_${message.guild.id}`] || {}), [type]: salon.id };
     channelConfigs[`logs_${message.guild.id}`] = config;
     saveConfigs();
-    message.reply(`Salons de logs configures:\nVoice: ${config.voice ? `<#${config.voice}>` : "non configure"}\nMessages: ${config.messages ? `<#${config.messages}>` : "non configure"}\nTickets: ${config.tickets ? `<#${config.tickets}>` : "non configure"}\nBoost: ${config.boost ? `<#${config.boost}>` : "non configure"}`);
+    message.reply(`Logs **${type}** configures dans <#${salon.id}>.\nConfig actuelle:\nVoice: ${config.voice ? `<#${config.voice}>` : "non configure"}\nMessages: ${config.messages ? `<#${config.messages}>` : "non configure"}\nTickets: ${config.tickets ? `<#${config.tickets}>` : "non configure"}\nBoost: ${config.boost ? `<#${config.boost}>` : "non configure"}`);
   }
 
   if (command === "leaderboard" || command === "lb") {
