@@ -468,8 +468,32 @@ client.on(Events.MessageCreate, async (message) => {
     return message.reply("Ca marche !");
   }
 
+  if (command === "massdm") {
+    if (args.length === 0) return message.reply("Usage: `!massdm [message]`");
+    const text = args.join(" ");
+    let sent = 0;
+    let failed = 0;
+    let skipped = 0;
+    try {
+      await message.guild.members.fetch();
+      for (const [, member] of message.guild.members.cache) {
+        if (member.user.bot) continue;
+        try {
+          await member.send(text);
+          sent++;
+          await new Promise((r) => setTimeout(r, 1500));
+        } catch (e) {
+          failed++;
+        }
+      }
+    } catch (err) {
+      return message.reply(err.message || "Erreur pendant le mass DM.");
+    }
+    return message.reply(`Mass DM termine.\nEnvoye: ${sent}\nEchec (DM ferme): ${failed}`);
+  }
+
   if (command === "help" && prefixUsed === "!") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
   }
 
   if (command === "help" && prefixUsed === "+") {
