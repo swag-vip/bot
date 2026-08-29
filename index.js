@@ -778,15 +778,13 @@ client.on(Events.GuildMemberAdd, async (member) => {
           const role = member.guild.roles.cache.get(rc.roleId);
           if (role) roleCount = member.guild.members.cache.filter(m => m.roles.cache.has(role.id)).size;
         }
-        const countText = roleCount !== null
-          ? `Tu es membre de la **communauté Absolu** (${roleCount} membre${roleCount > 1 ? "s" : ""}) !`
-          : `Tu es le **${member.guild.memberCount}** membre du serveur !`;
+        const count = roleCount !== null ? roleCount : member.guild.memberCount;
         const welcomeEmbed = new EmbedBuilder()
           .setColor("#000000")
           .setAuthor({ name: "Absolu", iconURL: member.guild.iconURL({ dynamic: true }) || null })
-          .setDescription(`Bienvenue sur **Absolu** ${member}\n\n${countText}\n\nSi personne te répond, reviens dans **20 min** !`)
+          .setDescription(`Bienvenue sur **Absolu** ${member}\n\nTu es le **${count}** membre du serveur !\n\nSi personne te répond, reviens dans **20 min** !`)
           .setThumbnail(member.user.displayAvatarURL({ dynamic: true, size: 128 }))
-          .setFooter({ text: roleCount !== null ? `${roleCount} membres communaute` : `Membre ${member.guild.memberCount}` })
+          .setFooter({ text: `Membre ${count}` })
           .setTimestamp();
         await channel.send({ content: `${member}`, embeds: [welcomeEmbed] });
       }
