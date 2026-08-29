@@ -5,7 +5,6 @@ const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, Events, Emb
 const express = require("express");
 
 const OWNER_ID = "1532548944419229710";
-const PREFIX = "+";
 const DATA_FILE = "data.json";
 const BLACKLIST = ["618042706031280133", "1391860474307411988", "1377301118052208674"];
 
@@ -449,17 +448,22 @@ client.on(Events.MessageCreate, async (message) => {
   addMessage(message.guild.id, message.author.id);
 
   if (message.author.id !== OWNER_ID) return;
-  if (!message.content.startsWith(PREFIX)) return;
+  const prefixUsed = message.content.startsWith("!") ? "!" : message.content.startsWith("+") ? "+" : null;
+  if (!prefixUsed) return;
 
-  const args = message.content.slice(PREFIX.length).trim().split(/ +/);
+  const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
   const command = args.shift().toLowerCase();
 
   if (command === "test") {
     return message.reply("Ca marche !");
   }
 
-  if (command === "help") {
-    return message.reply("Commandes:\n`+setup-vocal #salon` - Salon vocal perso\n`+setup-autorole @role` - Auto-role\n`+setup-statusrole @role` - Status-role\n`+setup-tickets #salon @role` - Systeme de tickets\n`+ticket-close` - Fermer un ticket\n`+setup-leaderboard #salon` - Leaderboard auto\n`+setup-welcome #salon` - Message de bienvenue\n`+setup-rolecounter #salon @role` - Compteur de membres role\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+leaderboard` - Classement\n`+rank` - Ton rang\n`+snipe` - Snipe un emoji/sticker externe");
+  if (command === "help" && prefixUsed === "!") {
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway");
+  }
+
+  if (command === "help" && prefixUsed === "+") {
+    return message.reply("Commandes:\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+snipe` - Snipe un emoji/sticker externe");
   }
 
   if (command === "lock") {
