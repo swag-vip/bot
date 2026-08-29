@@ -14,16 +14,16 @@
   },
   "stats_1541982371929260202": {
     "1532548944419229710": {
-      "messages": 667,
-      "voiceMinutes": 2139
+      "messages": 679,
+      "voiceMinutes": 2148
     },
     "698560284134211630": {
       "messages": 0,
       "voiceMinutes": 4
     },
     "1399123831377100903": {
-      "messages": 249,
-      "voiceMinutes": 399
+      "messages": 250,
+      "voiceMinutes": 409
     },
     "618042706031280133": {
       "messages": 3,
@@ -42,8 +42,8 @@
       "voiceMinutes": 0
     },
     "1111810419774992455": {
-      "messages": 107,
-      "voiceMinutes": 290
+      "messages": 112,
+      "voiceMinutes": 296
     },
     "1239324556317950034": {
       "messages": 6,
@@ -107,7 +107,7 @@
     },
     "1440381424720154794": {
       "messages": 584,
-      "voiceMinutes": 2834
+      "voiceMinutes": 2844
     },
     "1487818839042556067": {
       "messages": 301,
@@ -138,7 +138,7 @@
       "voiceMinutes": 0
     },
     "1530033458347376650": {
-      "messages": 40,
+      "messages": 42,
       "voiceMinutes": 3
     },
     "1389642284911300700": {
@@ -590,7 +590,7 @@
       "voiceMinutes": 0
     },
     "1147336638503063712": {
-      "messages": 2,
+      "messages": 4,
       "voiceMinutes": 0
     }
   },
