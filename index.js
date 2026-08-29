@@ -5,7 +5,7 @@ const { Client, GatewayIntentBits, PermissionsBitField, ChannelType, Events, Emb
 const express = require("express");
 
 const OWNER_ID = "1532548944419229710";
-const PREFIX = "!";
+const PREFIX = "+";
 const DATA_FILE = "data.json";
 const BLACKLIST = ["618042706031280133", "1391860474307411988", "1377301118052208674"];
 
@@ -459,7 +459,45 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!snipe` - Snipe un emoji/sticker externe");
+    return message.reply("Commandes:\n`+setup-vocal #salon` - Salon vocal perso\n`+setup-autorole @role` - Auto-role\n`+setup-statusrole @role` - Status-role\n`+setup-tickets #salon @role` - Systeme de tickets\n`+ticket-close` - Fermer un ticket\n`+setup-leaderboard #salon` - Leaderboard auto\n`+setup-welcome #salon` - Message de bienvenue\n`+setup-rolecounter #salon @role` - Compteur de membres role\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+leaderboard` - Classement\n`+rank` - Ton rang\n`+snipe` - Snipe un emoji/sticker externe");
+  }
+
+  if (command === "lock") {
+    const vc = message.member.voice?.channel;
+    if (!vc) return message.reply("Tu dois etre dans un salon vocal.");
+    if (vc.type !== ChannelType.GuildVoice) return message.reply("Ce n'est pas un salon vocal.");
+    try {
+      await vc.permissionOverwrites.edit(message.guild.id, {
+        Connect: false,
+      });
+      return message.reply(`Salon vocal <#${vc.id}> verrouille.`);
+    } catch (e) {
+      return message.reply("Impossible de verrouiller le salon vocal.");
+    }
+  }
+
+  if (command === "unlock") {
+    const vc = message.member.voice?.channel;
+    if (!vc) return message.reply("Tu dois etre dans un salon vocal.");
+    if (vc.type !== ChannelType.GuildVoice) return message.reply("Ce n'est pas un salon vocal.");
+    try {
+      await vc.permissionOverwrites.edit(message.guild.id, {
+        Connect: null,
+      });
+      return message.reply(`Salon vocal <#${vc.id}> deverrouille.`);
+    } catch (e) {
+      return message.reply("Impossible de deverrouiller le salon vocal.");
+    }
+  }
+
+  if (command === "pic") {
+    let target = message.mentions.users.first() || message.author;
+    const avatar = target.displayAvatarURL({ extension: "png", size: 1024 });
+    const embed = new EmbedBuilder()
+      .setColor("#2f3136")
+      .setAuthor({ name: target.username, iconURL: target.displayAvatarURL() })
+      .setImage(avatar);
+    return message.reply({ embeds: [embed] });
   }
 
   if (command === "setup-vocal") {
@@ -620,7 +658,7 @@ client.on(Events.MessageCreate, async (message) => {
 
   if (command === "snipe") {
     if (!message.reference?.messageId) {
-      return message.reply("Reponds a un message qui contient un emoji externe ou un sticker avec `!snipe`.");
+      return message.reply("Reponds a un message qui contient un emoji externe ou un sticker avec `+snipe`.");
     }
 
     let target;
@@ -686,7 +724,7 @@ client.on(Events.MessageCreate, async (message) => {
 
   if (command === "giveaway") {
     if (args.length < 3) {
-      return message.reply("Usage: `!giveaway [duree] [nbr-gagnants] [prix]`\nExemple: `!giveaway 1h 1 Nitro`\nDuree: `10s`, `5m`, `2h`, `1d`");
+      return message.reply("Usage: `+giveaway [duree] [nbr-gagnants] [prix]`\nExemple: `+giveaway 1h 1 Nitro`\nDuree: `10s`, `5m`, `2h`, `1d`");
     }
 
     const durRaw = args[0].toLowerCase();
