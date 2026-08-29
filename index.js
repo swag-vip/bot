@@ -767,6 +767,15 @@ client.on(Events.MessageReactionAdd, async (reaction, user) => {
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
+  const roleId = channelConfigs[`autorole_${member.guild.id}`];
+  if (roleId) {
+    try {
+      await member.roles.add(roleId);
+    } catch (err) {
+      console.error("Erreur auto-role:", err);
+    }
+  }
+
   const welcomeChannelId = channelConfigs[`welcome_${member.guild.id}`];
   if (welcomeChannelId) {
     try {
@@ -791,14 +800,6 @@ client.on(Events.GuildMemberAdd, async (member) => {
     } catch (err) {
       console.error("Erreur message de bienvenue:", err);
     }
-  }
-
-  const roleId = channelConfigs[`autorole_${member.guild.id}`];
-  if (!roleId) return;
-  try {
-    await member.roles.add(roleId);
-  } catch (err) {
-    console.error("Erreur auto-role:", err);
   }
 
   checkStatusRole(member);
