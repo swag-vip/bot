@@ -14,16 +14,16 @@
   },
   "stats_1541982371929260202": {
     "1532548944419229710": {
-      "messages": 635,
-      "voiceMinutes": 2105
+      "messages": 638,
+      "voiceMinutes": 2106
     },
     "698560284134211630": {
       "messages": 0,
       "voiceMinutes": 4
     },
     "1399123831377100903": {
-      "messages": 240,
-      "voiceMinutes": 365
+      "messages": 241,
+      "voiceMinutes": 366
     },
     "618042706031280133": {
       "messages": 3,
@@ -107,10 +107,10 @@
     },
     "1440381424720154794": {
       "messages": 577,
-      "voiceMinutes": 2809
+      "voiceMinutes": 2810
     },
     "1487818839042556067": {
-      "messages": 297,
+      "messages": 298,
       "voiceMinutes": 226
     },
     "1267488425796440217": {
@@ -574,7 +574,7 @@
       "voiceMinutes": 0
     },
     "564544474504757248": {
-      "messages": 8,
+      "messages": 10,
       "voiceMinutes": 0
     },
     "1299720179642663015": {
@@ -595,6 +595,7 @@
   "_giveaways": [],
   "logs_1541982371929260202": {
     "voice": "1543387151557722215",
-    "messages": "1543387272785956894"
+    "messages": "1543387272785956894",
+    "tickets": "1543387515816255538"
   }
 }
