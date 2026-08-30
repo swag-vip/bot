@@ -8,7 +8,6 @@ const OWNER_ID = "1532548944419229710";
 const DATA_FILE = "data.json";
 const BLACKLIST = ["618042706031280133", "1391860474307411988", "1377301118052208674"];
 
-client.on("error", (err) => console.error("[ClientError]", err.message));
 process.on("unhandledRejection", (err) => console.error("[UnhandledRejection]", err.message || err));
 process.on("uncaughtException", (err) => console.error("[UncaughtException]", err.message || err));
 
@@ -23,6 +22,8 @@ const client = new Client({
     GatewayIntentBits.GuildMessageReactions,
   ],
 });
+
+client.on("error", (err) => console.error("[ClientError]", err.message));
 
 const tempChannels = new Map();
 const ticketChannels = new Map();
