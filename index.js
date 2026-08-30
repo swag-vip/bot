@@ -542,7 +542,56 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help" && prefixUsed === "!") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs <categorie> #salon` - Logs (voice/messages/tickets/boost/staff/arrivals/departures)\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs <categorie> #salon` - Logs (voice/messages/tickets/boost/staff/arrivals/departures)\n`!say #salon message` - Faire parler le bot\n`!send-embed #salon message` - Message stylise\n`!bot-status [texte]` - Status du bot\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
+  }
+
+  if (command === "say") {
+    const salon = message.mentions.channels.first();
+    if (!salon || !salon.isTextBased() || salon.type === ChannelType.GuildDM) {
+      return message.reply("Mentionne un salon texte valide.");
+    }
+    const text = args.filter(a => !a.startsWith("<#") && !a.startsWith("<@")).join(" ") || args.join(" ");
+    if (!text) return message.reply("Usage: `!say #salon message`");
+    try {
+      await salon.send(text);
+      return message.reply(`Message envoye dans <#${salon.id}>.`);
+    } catch (err) {
+      return message.reply("Impossible d'envoyer le message (check les permissions du bot).");
+    }
+  }
+
+  if (command === "send-embed") {
+    const salon = message.mentions.channels.first();
+    if (!salon || !salon.isTextBased() || salon.type === ChannelType.GuildDM) {
+      return message.reply("Mentionne un salon texte valide.");
+    }
+    const text = args.filter(a => !a.startsWith("<#")).join(" ").trim();
+    if (!text) return message.reply("Usage: `!send-embed #salon message`");
+    const embed = new EmbedBuilder()
+      .setColor("#2f3136")
+      .setDescription(text)
+      .setTimestamp();
+    try {
+      await salon.send({ embeds: [embed] });
+      return message.reply(`Embed envoye dans <#${salon.id}>.`);
+    } catch (err) {
+      return message.reply("Impossible d'envoyer l'embed (check les permissions du bot).");
+    }
+  }
+
+  if (command === "bot-status") {
+    const text = args.join(" ").trim();
+    if (!text) return message.reply("Usage: `!bot-status [texte]`\nExemple: `!bot-status Jouer à Fortnite`");
+    try {
+      await client.user.setPresence({ activities: [{ name: text }] });
+      return message.reply(`Status du bot change: "${text}".`);
+    } catch (err) {
+      return message.reply("Impossible de changer le status.");
+    }
+  }
+
+  if (command === "bot-ping") {
+    return message.reply(`Ping du bot: **${Math.round(client.ws.ping)}ms**`);
   }
 
   if (command === "help" && prefixUsed === "+") {
