@@ -8,6 +8,10 @@ const OWNER_ID = "1532548944419229710";
 const DATA_FILE = "data.json";
 const BLACKLIST = ["618042706031280133", "1391860474307411988", "1377301118052208674"];
 
+client.on("error", (err) => console.error("[ClientError]", err.message));
+process.on("unhandledRejection", (err) => console.error("[UnhandledRejection]", err.message || err));
+process.on("uncaughtException", (err) => console.error("[UncaughtException]", err.message || err));
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -888,11 +892,13 @@ client.on(Events.MessageCreate, async (message) => {
 client.on(Events.MessageDelete, async (msg) => {
   if (!msg.guild) return;
   if (msg.author && msg.author.bot) return;
+  const content = msg.content || "*pas de contenu*";
+  const fieldValue = content.length > 1024 ? content.slice(0, 1021) + "..." : content;
   const embed = new EmbedBuilder()
     .setColor("#e67e22")
     .setAuthor({ name: msg.author ? msg.author.tag : "Inconnu", iconURL: msg.author ? msg.author.displayAvatarURL({ dynamic: true }) : null })
     .setDescription(`Message supprime dans <#${msg.channel.id}>`)
-    .addFields({ name: "Contenu", value: msg.content || "*pas de contenu*" })
+    .addFields({ name: "Contenu", value: fieldValue })
     .setFooter({ text: `ID: ${msg.id}` })
     .setTimestamp();
   sendLog(msg.guild, "messages", embed);
@@ -902,13 +908,17 @@ client.on(Events.MessageUpdate, async (oldMsg, newMsg) => {
   if (!oldMsg.guild) return;
   if (oldMsg.author && oldMsg.author.bot) return;
   if (oldMsg.content === newMsg.content) return;
+  const truncate = (s) => {
+    const txt = s || "*pas de contenu*";
+    return txt.length > 1024 ? txt.slice(0, 1021) + "..." : txt;
+  };
   const embed = new EmbedBuilder()
     .setColor("#e67e22")
     .setAuthor({ name: oldMsg.author ? oldMsg.author.tag : "Inconnu", iconURL: oldMsg.author ? oldMsg.author.displayAvatarURL({ dynamic: true }) : null })
     .setDescription(`Message modifie dans <#${oldMsg.channel.id}>`)
     .addFields(
-      { name: "Avant", value: oldMsg.content || "*pas de contenu*" },
-      { name: "Apres", value: newMsg.content || "*pas de contenu*" },
+      { name: "Avant", value: truncate(oldMsg.content) },
+      { name: "Apres", value: truncate(newMsg.content) },
     )
     .setFooter({ text: `ID: ${oldMsg.id}` })
     .setTimestamp();
