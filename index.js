@@ -541,8 +541,35 @@ client.on(Events.MessageCreate, async (message) => {
     return message.reply(`Mass DM termine.\nEnvoye: ${sent}\nEchec (DM ferme): ${failed}`);
   }
 
+  if (command === "panel") {
+    const embed = new EmbedBuilder()
+      .setColor("#2f3136")
+      .setTitle("🎛️ Panel de controle du bot")
+      .setDescription("Utilise les boutons ci-dessous pour controler le bot.")
+      .setTimestamp();
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("botpanel_say")
+        .setLabel("💬 Parler")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId("botpanel_embed")
+        .setLabel("📦 Embed")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId("botpanel_status")
+        .setLabel("🟢 Status")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("botpanel_ping")
+        .setLabel("⚡ Ping")
+        .setStyle(ButtonStyle.Secondary),
+    );
+    return message.reply({ embeds: [embed], components: [row] });
+  }
+
   if (command === "help" && prefixUsed === "!") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs <categorie> #salon` - Logs (voice/messages/tickets/boost/staff/arrivals/departures)\n`!say #salon message` - Faire parler le bot\n`!send-embed #salon message` - Message stylise\n`!bot-status [texte]` - Status du bot\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs <categorie> #salon` - Logs (voice/messages/tickets/boost/staff/arrivals/departures)\n`!say #salon message` - Faire parler le bot\n`!send-embed #salon message` - Message stylise\n`!panel` - Panel de controle du bot\n`!bot-status [texte]` - Status du bot\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
   }
 
   if (command === "say") {
@@ -1298,6 +1325,80 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+
+  const resolveChannel = (interaction, input) => {
+    const idMatch = input.match(/<#(\d+)>/);
+    const id = idMatch ? idMatch[1] : input.trim();
+    const byId = interaction.guild.channels.cache.get(id);
+    if (byId) return byId;
+    return interaction.guild.channels.cache
+      .filter((c) => c.isTextBased())
+      .find((c) => c.name.toLowerCase() === id.toLowerCase());
+  };
+
+  if (interaction.isButton() && interaction.customId.startsWith("botpanel_")) {
+    if (interaction.user.id !== OWNER_ID) {
+      return interaction.reply({ content: "Tu n'as pas la permission.", ephemeral: true });
+    }
+    if (interaction.customId === "botpanel_ping") {
+      return interaction.reply({ content: `Ping du bot: **${Math.round(client.ws.ping)}ms**`, ephemeral: true });
+    }
+    const isSay = interaction.customId === "botpanel_say";
+    const isStatus = interaction.customId === "botpanel_status";
+    const modal = new ModalBuilder()
+      .setCustomId(isStatus ? "botpanel_status_submit" : isSay ? "botpanel_say_submit" : "botpanel_embed_submit")
+      .setTitle(isSay ? "💬 Faire parler le bot" : isStatus ? "🟢 Changer le status" : "📦 Envoyer un embed");
+    const salonInput = new TextInputBuilder()
+      .setCustomId("salon")
+      .setLabel("#salon (nom ou mention)")
+      .setPlaceholder("ex: general")
+      .setStyle(TextInputStyle.Short)
+      .setRequired(true);
+    const messageInput = new TextInputBuilder()
+      .setCustomId("message")
+      .setLabel("Message")
+      .setPlaceholder("Tape ton message...")
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(true);
+    if (isStatus) {
+      modal.addComponents(new ActionRowBuilder().addComponents(messageInput));
+    } else {
+      modal.addComponents(new ActionRowBuilder().addComponents(salonInput));
+      modal.addComponents(new ActionRowBuilder().addComponents(messageInput));
+    }
+    return interaction.showModal(modal);
+  }
+
+  if (interaction.isModalSubmit() && interaction.customId.startsWith("botpanel_")) {
+    if (interaction.user.id !== OWNER_ID) {
+      return interaction.reply({ content: "Tu n'as pas la permission.", ephemeral: true });
+    }
+    const message = interaction.fields.getTextInputValue("message");
+    if (interaction.customId === "botpanel_status_submit") {
+      try {
+        await client.user.setPresence({ activities: [{ name: message }] });
+        return interaction.reply({ content: `Status change: **"${message}"**`, ephemeral: true });
+      } catch (err) {
+        return interaction.reply({ content: "Impossible de changer le status.", ephemeral: true });
+      }
+    }
+    const salonInput = interaction.fields.getTextInputValue("salon");
+    const salon = resolveChannel(interaction, salonInput);
+    if (!salon) {
+      return interaction.reply({ content: "Salon introuvable. Verifie le nom.", ephemeral: true });
+    }
+    try {
+      if (interaction.customId === "botpanel_say_submit") {
+        await salon.send(message);
+      } else {
+        const embed = new EmbedBuilder().setColor("#2f3136").setDescription(message).setTimestamp();
+        await salon.send({ embeds: [embed] });
+      }
+      return interaction.reply({ content: `Envoye dans <#${salon.id}>`, ephemeral: true });
+    } catch (err) {
+      return interaction.reply({ content: "Impossible d'envoyer (check les permissions).", ephemeral: true });
+    }
+  }
 
   if (interaction.isStringSelectMenu() && interaction.customId === "ticket_select") {
     const config = channelConfigs[`tickets_${interaction.guild.id}`];
