@@ -77,8 +77,10 @@ async function updateRoleCounter(channel, role, guild) {
 async function sendLog(guild, category, embed) {
   try {
     const cfg = channelConfigs[`logs_${guild.id}`];
-    if (!cfg || !cfg[category]) return;
-    const channel = guild.channels.cache.get(cfg[category]);
+    if (!cfg) return;
+    const key = cfg[category] || (category === "arrivals" ? cfg.arrivees : category === "departures" ? cfg.departs : null);
+    if (!key) return;
+    const channel = guild.channels.cache.get(key);
     if (!channel) return;
     await channel.send({ embeds: [embed] });
   } catch (e) {}
@@ -717,20 +719,23 @@ client.on(Events.MessageCreate, async (message) => {
   if (command === "setup-logs") {
     const type = args[0] && args[0].toLowerCase();
     const salon = message.mentions.channels.first();
-    const validTypes = ["voice", "messages", "tickets", "boost", "staff", "arrivees", "departs"];
+    const validTypes = ["voice", "messages", "tickets", "boost", "staff", "arrivals", "departures", "arrivees", "departs"];
 
     if (!type || !salon || salon.type !== ChannelType.GuildText) {
-      return message.reply("Usage: `!setup-logs <categorie> #salon`\nCategories: `voice`, `messages`, `tickets`, `boost`, `staff`, `arrivees`, `departs`\nExemple: `!setup-logs voice #voice-logs`\nRefais la commande pour chaque categorie avec son salon de ton choix.");
+      return message.reply("Usage: `!setup-logs <categorie> #salon`\nCategories: `voice`, `messages`, `tickets`, `boost`, `staff`, `arrivals` (ou `arrivees`), `departures` (ou `departs`)\nExemple: `!setup-logs voice #voice-logs`\nRefais la commande pour chaque categorie avec son salon de ton choix.");
     }
 
     if (!validTypes.includes(type)) {
       return message.reply(`Categorie invalide. Categories: \`${validTypes.join("`, `")}\``);
     }
 
-    const config = { ...(channelConfigs[`logs_${message.guild.id}`] || {}), [type]: salon.id };
+    const typeMap = { arrivees: "arrivals", departs: "departures" };
+    const storeType = typeMap[type] || type;
+
+    const config = { ...(channelConfigs[`logs_${message.guild.id}`] || {}), [storeType]: salon.id };
     channelConfigs[`logs_${message.guild.id}`] = config;
     saveConfigs();
-    message.reply(`Logs **${type}** configures dans <#${salon.id}>.\nConfig actuelle:\nVoice: ${config.voice ? `<#${config.voice}>` : "non configure"}\nMessages: ${config.messages ? `<#${config.messages}>` : "non configure"}\nTickets: ${config.tickets ? `<#${config.tickets}>` : "non configure"}\nBoost: ${config.boost ? `<#${config.boost}>` : "non configure"}\nStaff: ${config.staff ? `<#${config.staff}>` : "non configure"}\nArrivees: ${config.arrivees ? `<#${config.arrivees}>` : "non configure"}\nDeparts: ${config.departs ? `<#${config.departs}>` : "non configure"}`);
+    message.reply(`Logs **${storeType}** configures dans <#${salon.id}>.\nConfig actuelle:\nVoice: ${config.voice ? `<#${config.voice}>` : "non configure"}\nMessages: ${config.messages ? `<#${config.messages}>` : "non configure"}\nTickets: ${config.tickets ? `<#${config.tickets}>` : "non configure"}\nBoost: ${config.boost ? `<#${config.boost}>` : "non configure"}\nStaff: ${config.staff ? `<#${config.staff}>` : "non configure"}\nArrivals: ${config.arrivals ? `<#${config.arrivals}>` : "non configure"}\nDepartures: ${config.departures ? `<#${config.departures}>` : "non configure"}`);
   }
 
   if (command === "leaderboard" || command === "lb") {
