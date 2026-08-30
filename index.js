@@ -475,7 +475,12 @@ function buildPanel(member) {
 client.once(Events.ClientReady, async () => {
   console.log(`Connecte en tant que ${client.user.tag}`);
 
+  const panelCommand = {
+    name: "panel",
+    description: "Panel de controle du bot (prive)",
+  };
   for (const [, guild] of client.guilds.cache) {
+    await guild.commands.create(panelCommand).catch(() => {});
     await guild.members.fetch().catch(() => {});
 
     guild.channels.cache.forEach((channel) => {
@@ -542,36 +547,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "panel") {
-    const embed = new EmbedBuilder()
-      .setColor("#2f3136")
-      .setTitle("🎛️ Panel de controle du bot")
-      .setDescription("Utilise les boutons ci-dessous pour controler le bot.")
-      .setTimestamp();
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("botpanel_say")
-        .setLabel("💬 Parler")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId("botpanel_embed")
-        .setLabel("📦 Embed")
-        .setStyle(ButtonStyle.Primary),
-      new ButtonBuilder()
-        .setCustomId("botpanel_status")
-        .setLabel("🟢 Status")
-        .setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder()
-        .setCustomId("botpanel_ping")
-        .setLabel("⚡ Ping")
-        .setStyle(ButtonStyle.Secondary),
-    );
-    message.delete().catch(() => {});
-    try {
-      const dm = await message.author.send({ embeds: [embed], components: [row] });
-      return dm;
-    } catch (err) {
-      return message.reply("Ouvre tes DMs pour utiliser le panel ! (Parametres > Confidentialite).");
-    }
+    return message.reply("Tape **`/panel`** dans n'importe quel salon : le panel s'affiche uniquement pour toi.");
   }
 
   if (command === "help" && prefixUsed === "!") {
@@ -1343,6 +1319,36 @@ client.on(Events.InteractionCreate, async (interaction) => {
       .filter((c) => c.isTextBased())
       .find((c) => c.name.toLowerCase() === id.toLowerCase());
   };
+
+  if (interaction.isChatInputCommand() && interaction.commandName === "panel") {
+    if (interaction.user.id !== OWNER_ID) {
+      return interaction.reply({ content: "Tu n'as pas la permission.", ephemeral: true });
+    }
+    const embed = new EmbedBuilder()
+      .setColor("#2f3136")
+      .setTitle("🎛️ Panel de controle du bot")
+      .setDescription("Utilise les boutons ci-dessous pour controler le bot.")
+      .setTimestamp();
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("botpanel_say")
+        .setLabel("💬 Parler")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId("botpanel_embed")
+        .setLabel("📦 Embed")
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId("botpanel_status")
+        .setLabel("🟢 Status")
+        .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId("botpanel_ping")
+        .setLabel("⚡ Ping")
+        .setStyle(ButtonStyle.Secondary),
+    );
+    return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  }
 
   if (interaction.isButton() && interaction.customId.startsWith("botpanel_")) {
     if (interaction.user.id !== OWNER_ID) {
