@@ -535,7 +535,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help" && prefixUsed === "!") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs <categorie> #salon` - Logs (voice/messages/tickets/boost/staff)\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs <categorie> #salon` - Logs (voice/messages/tickets/boost/staff/arrivals/departures)\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
   }
 
   if (command === "help" && prefixUsed === "+") {
@@ -717,10 +717,10 @@ client.on(Events.MessageCreate, async (message) => {
   if (command === "setup-logs") {
     const type = args[0] && args[0].toLowerCase();
     const salon = message.mentions.channels.first();
-    const validTypes = ["voice", "messages", "tickets", "boost", "staff"];
+    const validTypes = ["voice", "messages", "tickets", "boost", "staff", "arrivees", "departs"];
 
     if (!type || !salon || salon.type !== ChannelType.GuildText) {
-      return message.reply("Usage: `!setup-logs <categorie> #salon`\nCategories: `voice`, `messages`, `tickets`, `boost`, `staff`\nExemple: `!setup-logs voice #voice-logs`\nRefais la commande pour chaque categorie avec son salon de ton choix.");
+      return message.reply("Usage: `!setup-logs <categorie> #salon`\nCategories: `voice`, `messages`, `tickets`, `boost`, `staff`, `arrivees`, `departs`\nExemple: `!setup-logs voice #voice-logs`\nRefais la commande pour chaque categorie avec son salon de ton choix.");
     }
 
     if (!validTypes.includes(type)) {
@@ -730,7 +730,7 @@ client.on(Events.MessageCreate, async (message) => {
     const config = { ...(channelConfigs[`logs_${message.guild.id}`] || {}), [type]: salon.id };
     channelConfigs[`logs_${message.guild.id}`] = config;
     saveConfigs();
-    message.reply(`Logs **${type}** configures dans <#${salon.id}>.\nConfig actuelle:\nVoice: ${config.voice ? `<#${config.voice}>` : "non configure"}\nMessages: ${config.messages ? `<#${config.messages}>` : "non configure"}\nTickets: ${config.tickets ? `<#${config.tickets}>` : "non configure"}\nBoost: ${config.boost ? `<#${config.boost}>` : "non configure"}\nStaff: ${config.staff ? `<#${config.staff}>` : "non configure"}`);
+    message.reply(`Logs **${type}** configures dans <#${salon.id}>.\nConfig actuelle:\nVoice: ${config.voice ? `<#${config.voice}>` : "non configure"}\nMessages: ${config.messages ? `<#${config.messages}>` : "non configure"}\nTickets: ${config.tickets ? `<#${config.tickets}>` : "non configure"}\nBoost: ${config.boost ? `<#${config.boost}>` : "non configure"}\nStaff: ${config.staff ? `<#${config.staff}>` : "non configure"}\nArrivees: ${config.arrivees ? `<#${config.arrivees}>` : "non configure"}\nDeparts: ${config.departs ? `<#${config.departs}>` : "non configure"}`);
   }
 
   if (command === "leaderboard" || command === "lb") {
@@ -1008,6 +1008,15 @@ client.on(Events.GuildBanRemove, async (ban) => {
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
+  const created = new Date(member.user.createdTimestamp).toLocaleDateString("fr-FR");
+  const embed = new EmbedBuilder()
+    .setColor("#2ecc71")
+    .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+    .setDescription(`${member} a **rejoint** le serveur !\nCompte cree le ${created}`)
+    .setFooter({ text: `Membre ${member.guild.memberCount}` })
+    .setTimestamp();
+  sendLog(member.guild, "arrivals", embed);
+
   const roleId = channelConfigs[`autorole_${member.guild.id}`];
   if (roleId) {
     try {
@@ -1049,6 +1058,17 @@ client.on(Events.GuildMemberAdd, async (member) => {
   }
 
   checkStatusRole(member);
+});
+
+client.on(Events.GuildMemberRemove, async (member) => {
+  const joined = member.joinedAt ? new Date(member.joinedAt).toLocaleDateString("fr-FR") : "inconnue";
+  const embed = new EmbedBuilder()
+    .setColor("#e74c3c")
+    .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+    .setDescription(`${member.user.tag} a **quitte** le serveur.\nRejoint le ${joined}`)
+    .setFooter({ text: `Membre ${member.guild.memberCount}` })
+    .setTimestamp();
+  sendLog(member.guild, "departures", embed);
 });
 
 async function checkStatusRole(member) {
