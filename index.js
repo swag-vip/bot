@@ -565,7 +565,13 @@ client.on(Events.MessageCreate, async (message) => {
         .setLabel("⚡ Ping")
         .setStyle(ButtonStyle.Secondary),
     );
-    return message.reply({ embeds: [embed], components: [row] });
+    message.delete().catch(() => {});
+    try {
+      const dm = await message.author.send({ embeds: [embed], components: [row] });
+      return dm;
+    } catch (err) {
+      return message.reply("Ouvre tes DMs pour utiliser le panel ! (Parametres > Confidentialite).");
+    }
   }
 
   if (command === "help" && prefixUsed === "!") {
@@ -1327,11 +1333,13 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 client.on(Events.InteractionCreate, async (interaction) => {
 
   const resolveChannel = (interaction, input) => {
+    const guild = interaction.inGuild() ? interaction.guild : client.guilds.cache.first();
+    if (!guild) return null;
     const idMatch = input.match(/<#(\d+)>/);
     const id = idMatch ? idMatch[1] : input.trim();
-    const byId = interaction.guild.channels.cache.get(id);
+    const byId = guild.channels.cache.get(id);
     if (byId) return byId;
-    return interaction.guild.channels.cache
+    return guild.channels.cache
       .filter((c) => c.isTextBased())
       .find((c) => c.name.toLowerCase() === id.toLowerCase());
   };
