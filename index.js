@@ -535,7 +535,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help" && prefixUsed === "!") {
-    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs <categorie> #salon` - Logs (voice/messages/tickets/boost)\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
+    return message.reply("Commandes:\n`!setup-vocal #salon` - Salon vocal perso\n`!setup-autorole @role` - Auto-role\n`!setup-statusrole @role` - Status-role\n`!setup-tickets #salon @role` - Systeme de tickets\n`!ticket-close` - Fermer un ticket\n`!setup-leaderboard #salon` - Leaderboard auto\n`!setup-welcome #salon` - Message de bienvenue\n`!setup-rolecounter #salon @role` - Compteur de membres role\n`!setup-logs <categorie> #salon` - Logs (voice/messages/tickets/boost/staff)\n`!leaderboard` - Classement\n`!rank` - Ton rang\n`!giveaway` - Lancer un giveaway\n`!massdm [message]` - DM a tout le serveur");
   }
 
   if (command === "help" && prefixUsed === "+") {
@@ -717,10 +717,10 @@ client.on(Events.MessageCreate, async (message) => {
   if (command === "setup-logs") {
     const type = args[0] && args[0].toLowerCase();
     const salon = message.mentions.channels.first();
-    const validTypes = ["voice", "messages", "tickets", "boost"];
+    const validTypes = ["voice", "messages", "tickets", "boost", "staff"];
 
     if (!type || !salon || salon.type !== ChannelType.GuildText) {
-      return message.reply("Usage: `!setup-logs <categorie> #salon`\nCategories: `voice`, `messages`, `tickets`, `boost`\nExemple: `!setup-logs voice #voice-logs`\nRefais la commande pour chaque categorie avec son salon de ton choix.");
+      return message.reply("Usage: `!setup-logs <categorie> #salon`\nCategories: `voice`, `messages`, `tickets`, `boost`, `staff`\nExemple: `!setup-logs voice #voice-logs`\nRefais la commande pour chaque categorie avec son salon de ton choix.");
     }
 
     if (!validTypes.includes(type)) {
@@ -730,7 +730,7 @@ client.on(Events.MessageCreate, async (message) => {
     const config = { ...(channelConfigs[`logs_${message.guild.id}`] || {}), [type]: salon.id };
     channelConfigs[`logs_${message.guild.id}`] = config;
     saveConfigs();
-    message.reply(`Logs **${type}** configures dans <#${salon.id}>.\nConfig actuelle:\nVoice: ${config.voice ? `<#${config.voice}>` : "non configure"}\nMessages: ${config.messages ? `<#${config.messages}>` : "non configure"}\nTickets: ${config.tickets ? `<#${config.tickets}>` : "non configure"}\nBoost: ${config.boost ? `<#${config.boost}>` : "non configure"}`);
+    message.reply(`Logs **${type}** configures dans <#${salon.id}>.\nConfig actuelle:\nVoice: ${config.voice ? `<#${config.voice}>` : "non configure"}\nMessages: ${config.messages ? `<#${config.messages}>` : "non configure"}\nTickets: ${config.tickets ? `<#${config.tickets}>` : "non configure"}\nBoost: ${config.boost ? `<#${config.boost}>` : "non configure"}\nStaff: ${config.staff ? `<#${config.staff}>` : "non configure"}`);
   }
 
   if (command === "leaderboard" || command === "lb") {
@@ -950,6 +950,61 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
       .setTimestamp();
     sendLog(newMember.guild, "boost", embed);
   }
+
+  const hadTimeout = oldMember.communicationDisabledUntilTimestamp;
+  const hasTimeout = newMember.communicationDisabledUntilTimestamp;
+  if (!hadTimeout && hasTimeout) {
+    const ends = new Date(hasTimeout).toLocaleString("fr-FR");
+    const embed = new EmbedBuilder()
+      .setColor("#e67e22")
+      .setAuthor({ name: newMember.user.tag, iconURL: newMember.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`${newMember} a ete **mut (timeout)** jusqu'au ${ends}`)
+      .setTimestamp();
+    sendLog(newMember.guild, "staff", embed);
+  } else if (hadTimeout && !hasTimeout) {
+    const embed = new EmbedBuilder()
+      .setColor("#2ecc71")
+      .setAuthor({ name: newMember.user.tag, iconURL: newMember.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`${newMember} a ete **unmute**`)
+      .setTimestamp();
+    sendLog(newMember.guild, "staff", embed);
+  }
+
+  const oldRoles = oldMember.roles.cache.map(r => r.id).sort().join(",");
+  const newRoles = newMember.roles.cache.map(r => r.id).sort().join(",");
+  if (oldRoles !== newRoles) {
+    const added = newMember.roles.cache.filter(r => !oldMember.roles.cache.has(r.id)).map(r => `<@&${r.id}>`);
+    const removed = oldMember.roles.cache.filter(r => !newMember.roles.cache.has(r.id)).map(r => `<@&${r.id}>`);
+    let desc = `Roles de ${newMember} change:` ;
+    if (added.length) desc += `\n+ Ajoute: ${added.join(", ")}`;
+    if (removed.length) desc += `\n- Retire: ${removed.join(", ")}`;
+    if (added.length || removed.length) {
+      const embed = new EmbedBuilder()
+        .setColor("#9b59b6")
+        .setAuthor({ name: newMember.user.tag, iconURL: newMember.user.displayAvatarURL({ dynamic: true }) })
+        .setDescription(desc)
+        .setTimestamp();
+      sendLog(newMember.guild, "staff", embed);
+    }
+  }
+});
+
+client.on(Events.GuildBanAdd, async (ban) => {
+  const embed = new EmbedBuilder()
+    .setColor("#e74c3c")
+    .setAuthor({ name: ban.user.tag, iconURL: ban.user.displayAvatarURL({ dynamic: true }) })
+    .setDescription(`${ban.user} a ete **banni**${ban.reason ? `\nRaison: ${ban.reason}` : ""}`)
+    .setTimestamp();
+  sendLog(ban.guild, "staff", embed);
+});
+
+client.on(Events.GuildBanRemove, async (ban) => {
+  const embed = new EmbedBuilder()
+    .setColor("#2ecc71")
+    .setAuthor({ name: ban.user.tag, iconURL: ban.user.displayAvatarURL({ dynamic: true }) })
+    .setDescription(`${ban.user} a ete **deban**`)
+    .setTimestamp();
+  sendLog(ban.guild, "staff", embed);
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
@@ -1034,6 +1089,24 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
   console.log(`[VoiceUpdate] ${member.user.tag}: ${oldState.channelId} -> ${newState.channelId}`);
 
   updateAllCounters();
+
+  if (oldState.serverMute !== newState.serverMute) {
+    const embed = new EmbedBuilder()
+      .setColor(newState.serverMute ? "#e67e22" : "#2ecc71")
+      .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`${member} a ete **${newState.serverMute ? "mis en mute micro" : "unmute micro"}** sur le serveur`)
+      .setTimestamp();
+    sendLog(guild, "staff", embed);
+  }
+
+  if (oldState.serverDeaf !== newState.serverDeaf) {
+    const embed = new EmbedBuilder()
+      .setColor(newState.serverDeaf ? "#e67e22" : "#2ecc71")
+      .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL({ dynamic: true }) })
+      .setDescription(`${member} a ete **${newState.serverDeaf ? "mis en mute casque" : "unmute casque"}** sur le serveur`)
+      .setTimestamp();
+    sendLog(guild, "staff", embed);
+  }
 
   if (oldState.channel && !newState.channel) {
     const joinTime = voiceJoinTimes.get(`${guild.id}_${member.id}`);
