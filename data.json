@@ -107,10 +107,10 @@
     },
     "1440381424720154794": {
       "messages": 901,
-      "voiceMinutes": 7592
+      "voiceMinutes": 7599
     },
     "1487818839042556067": {
-      "messages": 508,
+      "messages": 515,
       "voiceMinutes": 412
     },
     "1267488425796440217": {
@@ -190,8 +190,8 @@
       "voiceMinutes": 0
     },
     "1397347086478872726": {
-      "messages": 102,
-      "voiceMinutes": 71
+      "messages": 104,
+      "voiceMinutes": 76
     },
     "831889985095204906": {
       "messages": 10,
@@ -710,8 +710,8 @@
       "voiceMinutes": 0
     },
     "1149798256189120614": {
-      "messages": 5,
-      "voiceMinutes": 62
+      "messages": 6,
+      "voiceMinutes": 72
     },
     "1460043457560318047": {
       "messages": 1,
@@ -803,7 +803,11 @@
     },
     "975075749881081906": {
       "messages": 1,
-      "voiceMinutes": 62
+      "voiceMinutes": 72
+    },
+    "852926824085192705": {
+      "messages": 5,
+      "voiceMinutes": 0
     }
   },
   "leaderboard_1541982371929260202": "1542298885580521584",
