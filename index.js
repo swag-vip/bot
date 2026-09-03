@@ -717,83 +717,83 @@ client.on(Events.MessageCreate, async (message) => {
     const pseudo = args[0].replace(/[^a-zA-Z0-9_\-]/g, "");
     if (!pseudo) return message.reply("Pseudo invalide.");
     await message.channel.sendTyping();
-    const opts = {
-      method: "HEAD",
-      redirect: "manual",
-      headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
-    };
+
+    const PLATFORMS = [
+      { n: "GitHub", url: (p) => `https://api.github.com/users/${p}`, mode: "api", found: [200], gone: [404] },
+      { n: "GitLab", url: (p) => `https://gitlab.com/api/v4/users?username=${p}`, mode: "json", found: [200], gone: [] },
+      { n: "YouTube", url: (p) => `https://www.youtube.com/@${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Twitch", url: (p) => `https://www.twitch.tv/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Telegram", url: (p) => `https://t.me/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Steam", url: (p) => `https://steamcommunity.com/id/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "GitHub Gist", url: (p) => `https://gist.github.com/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Spotify", url: (p) => `https://open.spotify.com/user/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Pinterest", url: (p) => `https://www.pinterest.com/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Vimeo", url: (p) => `https://vimeo.com/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "SoundCloud", url: (p) => `https://soundcloud.com/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Roblox", url: (p) => `https://www.roblox.com/user.aspx?username=${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "DeviantArt", url: (p) => `https://www.deviantart.com/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Dev.to", url: (p) => `https://dev.to/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Keybase", url: (p) => `https://keybase.io/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Gravatar", url: (p) => `https://en.gravatar.com/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Replit", url: (p) => `https://replit.com/@${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Pastebin", url: (p) => `https://pastebin.com/u/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "BitBucket", url: (p) => `https://bitbucket.org/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Dribbble", url: (p) => `https://dribbble.com/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Flickr", url: (p) => `https://www.flickr.com/people/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "LiveJournal", url: (p) => `https://${p}.livejournal.com`, mode: "http", found: [200], gone: [404] },
+      { n: "Mastodon.social", url: (p) => `https://mastodon.social/@${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "Bitwarden", url: (p) => `https://bitwarden.com/${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "HackerNews", url: (p) => `https://news.ycombinator.com/user?id=${p}`, mode: "http", found: [200], gone: [404] },
+    ];
+
+    const BLOCKED = [301, 302, 303, 307, 308, 429, 403, 400, 401, 405, 406, 503];
+
     const results = [];
-    const errors = [];
-    const check = async (label, url, mode, method = "HEAD") => {
+    const check = async (site) => {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 6000);
+      const t = setTimeout(() => ctrl.abort(), 7000);
       try {
-        const res = await fetch(url, { ...opts, method, signal: ctrl.signal });
-        let status = res.status;
-        let found = false;
-        if (mode === "api") {
-          found = res.status === 200;
-        } else if (mode === "json") {
+        const res = await fetch(site.url(pseudo), {
+          method: site.mode === "json" ? "GET" : "GET",
+          redirect: "manual",
+          headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", accept: "*/*" },
+          signal: ctrl.signal,
+        });
+        const status = res.status;
+        let verdict;
+        if (site.mode === "json") {
           try {
-            const text = res.ok ? await res.text() : "";
-            found = text && !text.trim().startsWith("[]") && res.status === 200;
-          } catch (e) { found = false; }
+            const text = await res.text();
+            verdict = !text.trim().startsWith("[") ? "TROUVE" :
+              (text.trim().startsWith("[]") ? "non trouve" : "TROUVE");
+          } catch (e) { verdict = "indetermine"; }
         } else {
-          found = res.status === 200;
+          if (site.found.includes(status)) verdict = "TROUVE";
+          else if (site.gone.includes(status)) verdict = "non trouve";
+          else if (BLOCKED.includes(status)) verdict = "indetermine (site bloque les bots)";
+          else if (status === 404) verdict = "non trouve";
+          else verdict = "indetermine";
         }
-        results.push(`**${label}** : ${found ? "TROUVE" : "non trouve"} (HTTP ${status})`);
+        results.push(`**${site.n}** : ${verdict}${verdict === "TROUVE" ? ` - ${site.url(pseudo)}` : ""}`);
       } catch (e) {
-        errors.push(`**${label}** : erreur`);
-        results.push(`**${label}** : erreur`);
+        results.push(`**${site.n}** : indeterminate (erreur)`);
       } finally {
         clearTimeout(t);
       }
     };
 
-    const proms = [];
-    proms.push(check("GitHub", `https://api.github.com/users/${pseudo}`, "api"));
-    proms.push(check("GitLab", `https://gitlab.com/api/v4/users?username=${pseudo}`, "json"));
-    proms.push(check("YouTube", `https://www.youtube.com/@${pseudo}`, "http"));
-    proms.push(check("Twitch", `https://www.twitch.tv/${pseudo}`, "http"));
-    proms.push(check("Twitter/X", `https://twitter.com/${pseudo}`, "http"));
-    proms.push(check("Instagram", `https://www.instagram.com/${pseudo}`, "http"));
-    proms.push(check("TikTok", `https://www.tiktok.com/@${pseudo}`, "http"));
-    proms.push(check("Reddit", `https://www.reddit.com/user/${pseudo}`, "http"));
-    proms.push(check("Facebook", `https://www.facebook.com/${pseudo}`, "http"));
-    proms.push(check("Pinterest", `https://www.pinterest.com/${pseudo}`, "http"));
-    proms.push(check("Snapchat", `https://www.snapchat.com/add/${pseudo}`, "http"));
-    proms.push(check("Telegram", `https://t.me/${pseudo}`, "http"));
-    proms.push(check("Roblox", `https://www.roblox.com/user.aspx?username=${pseudo}`, "http"));
-    proms.push(check("Spotify", `https://open.spotify.com/user/${pseudo}`, "http"));
-    proms.push(check("Steam", `https://steamcommunity.com/id/${pseudo}`, "http"));
-    proms.push(check("DeviantArt", `https://www.deviantart.com/${pseudo}`, "http"));
-    proms.push(check("Dev.to", `https://dev.to/${pseudo}`, "http"));
-    proms.push(check("Medium", `https://medium.com/@${pseudo}`, "http"));
-    proms.push(check("HackerNews", `https://news.ycombinator.com/user?id=${pseudo}`, "http"));
-    proms.push(check("Wikipedia", `https://en.wikipedia.org/wiki/User:${pseudo}`, "http"));
-    proms.push(check("GitHub Gist", `https://gist.github.com/${pseudo}`, "http"));
-    proms.push(check("Replit", `https://replit.com/@${pseudo}`, "http"));
-    proms.push(check("Patreon", `https://www.patreon.com/${pseudo}`, "http"));
-    proms.push(check("Behance", `https://www.behance.net/${pseudo}`, "http"));
-    proms.push(check("Dribbble", `https://dribbble.com/${pseudo}`, "http"));
-    proms.push(check("SoundCloud", `https://soundcloud.com/${pseudo}`, "http"));
-    proms.push(check("Vimeo", `https://vimeo.com/${pseudo}`, "http"));
-    proms.push(check("Flickr", `https://www.flickr.com/people/${pseudo}`, "http"));
-    proms.push(check("BitBucket", `https://bitbucket.org/${pseudo}`, "http"));
-    proms.push(check("Keybase", `https://keybase.io/${pseudo}`, "http"));
-    proms.push(check("Pastebin", `https://pastebin.com/u/${pseudo}`, "http"));
-    proms.push(check("Wordpress", `https://${pseudo}.wordpress.com`, "http"));
-    proms.push(check("Tumblr", `https://${pseudo}.tumblr.com`, "http"));
-    proms.push(check("LiveJournal", `https://${pseudo}.livejournal.com`, "http"));
-    proms.push(check("Gravatar", `https://en.gravatar.com/${pseudo}`, "http"));
     try {
-      await Promise.all(proms);
+      await Promise.all(PLATFORMS.map(check));
     } catch (e) {}
 
+    const found = results.filter((r) => r.includes(": TROUVE"));
     const embed = new EmbedBuilder()
       .setColor("#2f3136")
       .setTitle(`Lookup du pseudo : ${pseudo}`)
-      .setDescription(results.join("\n") || "_Aucun resultat_")
+      .addFields(
+        { name: "Trouves", value: found.length ? found.join("\n") : "_Aucun_", inline: false },
+        { name: "Details", value: results.join("\n") || "_Aucun resultat_", inline: false },
+      )
       .setTimestamp();
     return message.reply({ embeds: [embed] });
   }
