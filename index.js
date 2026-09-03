@@ -719,66 +719,80 @@ client.on(Events.MessageCreate, async (message) => {
     await message.channel.sendTyping();
 
     const PLATFORMS = [
-      { n: "GitHub", url: (p) => `https://api.github.com/users/${p}`, mode: "api", found: [200], gone: [404] },
-      { n: "GitLab", url: (p) => `https://gitlab.com/api/v4/users?username=${p}`, mode: "json", found: [200], gone: [] },
-      { n: "YouTube", url: (p) => `https://www.youtube.com/@${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Twitch", url: (p) => `https://www.twitch.tv/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Telegram", url: (p) => `https://t.me/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Steam", url: (p) => `https://steamcommunity.com/id/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "GitHub Gist", url: (p) => `https://gist.github.com/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Spotify", url: (p) => `https://open.spotify.com/user/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Pinterest", url: (p) => `https://www.pinterest.com/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Vimeo", url: (p) => `https://vimeo.com/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "SoundCloud", url: (p) => `https://soundcloud.com/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Roblox", url: (p) => `https://www.roblox.com/user.aspx?username=${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "DeviantArt", url: (p) => `https://www.deviantart.com/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Dev.to", url: (p) => `https://dev.to/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Keybase", url: (p) => `https://keybase.io/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Gravatar", url: (p) => `https://en.gravatar.com/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Replit", url: (p) => `https://replit.com/@${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Pastebin", url: (p) => `https://pastebin.com/u/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "BitBucket", url: (p) => `https://bitbucket.org/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Dribbble", url: (p) => `https://dribbble.com/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Flickr", url: (p) => `https://www.flickr.com/people/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "LiveJournal", url: (p) => `https://${p}.livejournal.com`, mode: "http", found: [200], gone: [404] },
-      { n: "Mastodon.social", url: (p) => `https://mastodon.social/@${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "Bitwarden", url: (p) => `https://bitwarden.com/${p}`, mode: "http", found: [200], gone: [404] },
-      { n: "HackerNews", url: (p) => `https://news.ycombinator.com/user?id=${p}`, mode: "http", found: [200], gone: [404] },
+      { n: "GitHub", url: (p) => `https://api.github.com/users/${p}`, mode: "api" },
+      { n: "GitLab", url: (p) => `https://gitlab.com/api/v4/users?username=${p}`, mode: "json" },
+      { n: "YouTube", url: (p) => `https://www.youtube.com/@${p}`, mode: "http" },
+      { n: "Twitch", url: (p) => `https://www.twitch.tv/${p}`, mode: "http" },
+      { n: "Telegram", url: (p) => `https://t.me/${p}`, mode: "http" },
+      { n: "Steam", url: (p) => `https://steamcommunity.com/id/${p}`, mode: "http" },
+      { n: "Mastodon.social", url: (p) => `https://mastodon.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
+      { n: "Pixelfed.social", url: (p) => `https://pixelfed.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
+      { n: "Lemmy.world", url: (p) => `https://lemmy.world/api/v3/user?username=${p}`, mode: "api" },
+      { n: "mamot.fr", url: (p) => `https://mamot.fr/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
+      { n: "chaos.social", url: (p) => `https://chaos.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
+      { n: "twit.social", url: (p) => `https://twit.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
+      { n: "PeerTube (kino)", url: (p) => `https://kino.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
+      { n: "SoundCloud", url: (p) => `https://soundcloud.com/${p}`, mode: "http" },
+      { n: "Vimeo", url: (p) => `https://vimeo.com/${p}`, mode: "http" },
+      { n: "Spotify", url: (p) => `https://open.spotify.com/user/${p}`, mode: "http" },
+      { n: "Dev.to", url: (p) => `https://dev.to/${p}`, mode: "http" },
+      { n: "Keybase", url: (p) => `https://keybase.io/${p}`, mode: "http" },
+      { n: "GitHub Gist", url: (p) => `https://gist.github.com/${p}`, mode: "http" },
+      { n: "Replit", url: (p) => `https://replit.com/@${p}`, mode: "http" },
+      { n: "Dribbble", url: (p) => `https://dribbble.com/${p}`, mode: "http" },
+      { n: "Flickr", url: (p) => `https://www.flickr.com/people/${p}`, mode: "http" },
+      { n: "Pastebin", url: (p) => `https://pastebin.com/u/${p}`, mode: "http" },
+      { n: "BitBucket", url: (p) => `https://bitbucket.org/${p}`, mode: "http" },
+      { n: "DeviantArt", url: (p) => `https://www.deviantart.com/${p}`, mode: "http" },
+      { n: "Pinterest", url: (p) => `https://www.pinterest.com/${p}`, mode: "http" },
     ];
 
-    const BLOCKED = [301, 302, 303, 307, 308, 429, 403, 400, 401, 405, 406, 503];
-
     const results = [];
+    const FE = {
+      fetch: async (site, p) => {
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 7000);
+        try {
+          const res = await fetch(site.url(p), {
+            method: "GET",
+            redirect: "manual",
+            headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", accept: "application/json, text/plain, */*" },
+            signal: ctrl.signal,
+          });
+          return res;
+        } finally {
+          clearTimeout(t);
+        }
+      },
+    };
     const check = async (site) => {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 7000);
       try {
-        const res = await fetch(site.url(pseudo), {
-          method: site.mode === "json" ? "GET" : "GET",
-          redirect: "manual",
-          headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", accept: "*/*" },
-          signal: ctrl.signal,
-        });
+        const res = await FE.fetch(site, pseudo);
         const status = res.status;
         let verdict;
-        if (site.mode === "json") {
-          try {
-            const text = await res.text();
-            verdict = !text.trim().startsWith("[") ? "TROUVE" :
-              (text.trim().startsWith("[]") ? "non trouve" : "TROUVE");
-          } catch (e) { verdict = "indetermine"; }
-        } else {
-          if (site.found.includes(status)) verdict = "TROUVE";
-          else if (site.gone.includes(status)) verdict = "non trouve";
-          else if (BLOCKED.includes(status)) verdict = "indetermine (site bloque les bots)";
+        if (site.mode === "api") {
+          if (status === 200) verdict = "TROUVE";
           else if (status === 404) verdict = "non trouve";
+          else verdict = "indetermine";
+        } else if (site.mode === "json") {
+          if (status === 200) {
+            try {
+              const text = await res.text();
+              const trimmed = text.trim();
+              if (trimmed === "[]" || trimmed === "null" || trimmed === "") verdict = "non trouve";
+              else verdict = "TROUVE";
+            } catch (e) { verdict = "indetermine"; }
+          } else if (status === 404) verdict = "non trouve";
+          else verdict = "indetermine";
+        } else {
+          if (status === 200) verdict = "TROUVE";
+          else if (status === 404) verdict = "non trouve";
+          else if ([301, 302, 303, 307, 308, 403, 405, 429].includes(status)) verdict = "indetermine";
           else verdict = "indetermine";
         }
         results.push(`**${site.n}** : ${verdict}${verdict === "TROUVE" ? ` - ${site.url(pseudo)}` : ""}`);
       } catch (e) {
         results.push(`**${site.n}** : indeterminate (erreur)`);
-      } finally {
-        clearTimeout(t);
       }
     };
 
@@ -786,6 +800,7 @@ client.on(Events.MessageCreate, async (message) => {
       await Promise.all(PLATFORMS.map(check));
     } catch (e) {}
 
+    results.sort((a, b) => (a.includes(": TROUVE") ? -1 : b.includes(": TROUVE") ? 1 : 0));
     const found = results.filter((r) => r.includes(": TROUVE"));
     const embed = new EmbedBuilder()
       .setColor("#2f3136")
