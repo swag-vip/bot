@@ -723,54 +723,77 @@ client.on(Events.MessageCreate, async (message) => {
       headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
     };
     const results = [];
-    const real = [];
-    const check = async (label, url, mode) => {
+    const errors = [];
+    const check = async (label, url, mode, method = "HEAD") => {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 5000);
+      const t = setTimeout(() => ctrl.abort(), 6000);
       try {
-        const res = await fetch(url, { ...opts, signal: ctrl.signal });
+        const res = await fetch(url, { ...opts, method, signal: ctrl.signal });
+        let status = res.status;
         let found = false;
-        if (mode === "github") found = res.status === 200;
-        else if (mode === "gitlab") found = res.status === 200;
-        else if (mode === "status200") found = res.status === 200;
-        if (mode === "gitlab.json") {
+        if (mode === "api") {
+          found = res.status === 200;
+        } else if (mode === "json") {
           try {
             const text = res.ok ? await res.text() : "";
-            found = text && !text.trim().startsWith("[]");
+            found = text && !text.trim().startsWith("[]") && res.status === 200;
           } catch (e) { found = false; }
+        } else {
+          found = res.status === 200;
         }
-        if (found) real.push(label);
-        results.push(`${found ? "✅" : "❌"} **${label}**${found ? ` - ${url}` : ""}`);
+        results.push(`**${label}** : ${found ? "TROUVE" : "non trouve"} (HTTP ${status})`);
       } catch (e) {
-        results.push(`⚠️ ${label} - introuvable ou bloqué`);
+        errors.push(`**${label}** : erreur`);
+        results.push(`**${label}** : erreur`);
       } finally {
         clearTimeout(t);
       }
     };
 
     const proms = [];
-    proms.push(check("GitHub", `https://api.github.com/users/${pseudo}`, "github"));
-    proms.push(check("GitLab", `https://gitlab.com/api/v4/users?username=${pseudo}`, "gitlab.json"));
-    proms.push(check("YouTube", `https://www.youtube.com/@${pseudo}`, "status200"));
-    proms.push(check("Roblox", `https://www.roblox.com/user.aspx?username=${pseudo}`, "status200"));
-    proms.push(check("Spotify", `https://open.spotify.com/user/${pseudo}`, "status200"));
-    proms.push(check("Telegram", `https://t.me/${pseudo}`, "status200"));
+    proms.push(check("GitHub", `https://api.github.com/users/${pseudo}`, "api"));
+    proms.push(check("GitLab", `https://gitlab.com/api/v4/users?username=${pseudo}`, "json"));
+    proms.push(check("YouTube", `https://www.youtube.com/@${pseudo}`, "http"));
+    proms.push(check("Twitch", `https://www.twitch.tv/${pseudo}`, "http"));
+    proms.push(check("Twitter/X", `https://twitter.com/${pseudo}`, "http"));
+    proms.push(check("Instagram", `https://www.instagram.com/${pseudo}`, "http"));
+    proms.push(check("TikTok", `https://www.tiktok.com/@${pseudo}`, "http"));
+    proms.push(check("Reddit", `https://www.reddit.com/user/${pseudo}`, "http"));
+    proms.push(check("Facebook", `https://www.facebook.com/${pseudo}`, "http"));
+    proms.push(check("Pinterest", `https://www.pinterest.com/${pseudo}`, "http"));
+    proms.push(check("Snapchat", `https://www.snapchat.com/add/${pseudo}`, "http"));
+    proms.push(check("Telegram", `https://t.me/${pseudo}`, "http"));
+    proms.push(check("Roblox", `https://www.roblox.com/user.aspx?username=${pseudo}`, "http"));
+    proms.push(check("Spotify", `https://open.spotify.com/user/${pseudo}`, "http"));
+    proms.push(check("Steam", `https://steamcommunity.com/id/${pseudo}`, "http"));
+    proms.push(check("DeviantArt", `https://www.deviantart.com/${pseudo}`, "http"));
+    proms.push(check("Dev.to", `https://dev.to/${pseudo}`, "http"));
+    proms.push(check("Medium", `https://medium.com/@${pseudo}`, "http"));
+    proms.push(check("HackerNews", `https://news.ycombinator.com/user?id=${pseudo}`, "http"));
+    proms.push(check("Wikipedia", `https://en.wikipedia.org/wiki/User:${pseudo}`, "http"));
+    proms.push(check("GitHub Gist", `https://gist.github.com/${pseudo}`, "http"));
+    proms.push(check("Replit", `https://replit.com/@${pseudo}`, "http"));
+    proms.push(check("Patreon", `https://www.patreon.com/${pseudo}`, "http"));
+    proms.push(check("Behance", `https://www.behance.net/${pseudo}`, "http"));
+    proms.push(check("Dribbble", `https://dribbble.com/${pseudo}`, "http"));
+    proms.push(check("SoundCloud", `https://soundcloud.com/${pseudo}`, "http"));
+    proms.push(check("Vimeo", `https://vimeo.com/${pseudo}`, "http"));
+    proms.push(check("Flickr", `https://www.flickr.com/people/${pseudo}`, "http"));
+    proms.push(check("BitBucket", `https://bitbucket.org/${pseudo}`, "http"));
+    proms.push(check("Keybase", `https://keybase.io/${pseudo}`, "http"));
+    proms.push(check("Pastebin", `https://pastebin.com/u/${pseudo}`, "http"));
+    proms.push(check("Wordpress", `https://${pseudo}.wordpress.com`, "http"));
+    proms.push(check("Tumblr", `https://${pseudo}.tumblr.com`, "http"));
+    proms.push(check("LiveJournal", `https://${pseudo}.livejournal.com`, "http"));
+    proms.push(check("Gravatar", `https://en.gravatar.com/${pseudo}`, "http"));
     try {
       await Promise.all(proms);
     } catch (e) {}
 
-    const foundList = real.length
-      ? real.map((l) => `- **${l}** : compte trouvé`).join("\n")
-      : "_Aucun compte trouvé sur les plateformes fiables._";
-
     const embed = new EmbedBuilder()
       .setColor("#2f3136")
-      .setTitle(`🔍 Lookup du pseudo : \`${pseudo}\``)
-      .addFields(
-        { name: "✅ Comptes trouvés", value: foundList, inline: false },
-        { name: "📋 Résultat par plateforme", value: results.join("\n") || "_Aucun résultat_", inline: false },
-      )
-      .setFooter({ text: "Fiabilité : seul GitHub/GitLab est 100% fiable sans clé. Les autres peuvent bloquer les bots.", iconURL: client.user.displayAvatarURL() })
+      .setTitle(`Lookup du pseudo : ${pseudo}`)
+      .setDescription(results.join("\n") || "_Aucun resultat_")
       .setTimestamp();
     return message.reply({ embeds: [embed] });
   }
