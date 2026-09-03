@@ -484,8 +484,31 @@ client.once(Events.ClientReady, async () => {
     await client.application.commands.create(panelCommand);
   } catch (e) {}
 
+  const sayGlobal = {
+    name: "say",
+    description: "Faire ecrire le bot (salon courant ou choisi)",
+    options: [
+      {
+        name: "message",
+        description: "Le message a ecrire",
+        type: 3,
+        required: true,
+      },
+      {
+        name: "salon",
+        description: "Salon ou envoyer (mettre sinon salon courant)",
+        type: 7,
+        required: false,
+      },
+    ],
+  };
+  try {
+    await client.application.commands.create(sayGlobal);
+  } catch (e) {}
+
   for (const [, guild] of client.guilds.cache) {
     await guild.commands.create(panelCommand).catch(() => {});
+    await guild.commands.create(sayGlobal).catch(() => {});
     await guild.members.fetch().catch(() => {});
 
     guild.channels.cache.forEach((channel) => {
@@ -1504,6 +1527,28 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .setStyle(ButtonStyle.Secondary),
     );
     return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  }
+
+  if (interaction.isChatInputCommand() && interaction.commandName === "say") {
+    if (interaction.user.id !== OWNER_ID) {
+      return interaction.reply({ content: "Tu n'as pas la permission.", ephemeral: true });
+    }
+    const text = interaction.options.getString("message");
+    const salon = interaction.options.getChannel("salon");
+    try {
+      if (salon && salon.isTextBased()) {
+        await salon.send(text);
+        return interaction.reply({ content: `Message envoye dans <#${salon.id}>`, ephemeral: true });
+      } else {
+        if (!interaction.channel || !interaction.channel.isTextBased()) {
+          return interaction.reply({ content: "Utilise ça dans un salon texte ou passe un salon.", ephemeral: true });
+        }
+        await interaction.channel.send(text);
+        return interaction.reply({ content: "Message envoye.", ephemeral: true });
+      }
+    } catch (err) {
+      return interaction.reply({ content: "Impossible d'envoyer (check les permissions).", ephemeral: true });
+    }
   }
 
   if (interaction.isButton() && interaction.customId.startsWith("botpanel_")) {
