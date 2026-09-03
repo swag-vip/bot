@@ -496,8 +496,8 @@ client.once(Events.ClientReady, async () => {
       },
       {
         name: "salon",
-        description: "Salon ou envoyer (mettre sinon salon courant)",
-        type: 7,
+        description: "Nom ou #mention du salon (ex: general). Sinon salon courant.",
+        type: 3,
         required: false,
       },
     ],
@@ -1543,18 +1543,20 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({ content: "Tu n'as pas la permission.", ephemeral: true });
     }
     const text = interaction.options.getString("message");
-    const salonOpt = interaction.options.getChannel("salon");
     let target = null;
-    if (salonOpt && (salonOpt.isTextBased && salonOpt.isTextBased())) target = salonOpt;
+    const salonStr = interaction.options.getString("salon");
+    if (salonStr) {
+      target = resolveChannel(interaction, salonStr);
+    }
     if (!target && interaction.channel && interaction.channel.isTextBased && interaction.channel.isTextBased()) target = interaction.channel;
-    if (!target) {
+    if (!target && interaction.inGuild && !interaction.inGuild()) {
       try {
         const dm = await interaction.user.createDM();
         target = dm;
       } catch (e) {}
     }
     if (!target) {
-      return interaction.reply({ content: "Aucun salon texte valide.", ephemeral: true });
+      return interaction.reply({ content: "Salon introuvable. Reponds: `salon: nom-du-salon` ou `salon: #mention`.", ephemeral: true });
     }
     try {
       await target.send(text);
