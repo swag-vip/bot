@@ -604,7 +604,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help" && prefixUsed === "+") {
-    return message.reply("Commandes:\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+snipe` - Snipe un emoji/sticker externe");
+    return message.reply("Commandes:\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+userinfo [id/mention/nom]` - Fiche detaillee d'un membre\n`+snipe` - Snipe un emoji/sticker externe");
   }
 
   if (command === "lock") {
@@ -642,6 +642,73 @@ client.on(Events.MessageCreate, async (message) => {
       .setColor("#2f3136")
       .setAuthor({ name: target.username, iconURL: target.displayAvatarURL() })
       .setImage(avatar);
+    return message.reply({ embeds: [embed] });
+  }
+
+  if (command === "userinfo" || command === "lookup" || command === "whois") {
+    if (!message.guild) return message.reply("Cette commande marche seulement dans un serveur.");
+    await message.guild.members.fetch().catch(() => {});
+    let userID = (args[0] || "").replace(/[<@!>]/g, "");
+    let target = userID ? message.guild.members.cache.get(userID) : null;
+    if (!target) {
+      const mentioned = message.mentions.members.first() || message.mentions.users.first();
+      if (mentioned) target = message.guild.members.cache.get(mentioned.id);
+    }
+    if (!target) {
+      const byName = args.join(" ");
+      if (byName) {
+        target = message.guild.members.cache.find(
+          (m) => m.user.tag.toLowerCase().includes(byName.toLowerCase()) || m.displayName.toLowerCase().includes(byName.toLowerCase())
+        );
+      }
+    }
+    if (!target) target = message.member;
+    const u = target.user;
+    const createdAt = u.createdTimestamp ? new Date(u.createdTimestamp) : null;
+    const joinedAt = target.joinedAt ? new Date(target.joinedAt) : null;
+    const now = Date.now();
+    const fmt = (t) => t ? `<t:${Math.floor(t.getTime() / 1000)}:F>` : "Inconnu";
+    const rel = (t) => t ? `<t:${Math.floor(t.getTime() / 1000)}:R>` : "Inconnu";
+
+    const badges = [];
+    if (u.flags) {
+      const f = u.flags.toArray();
+      badges.push(...f.map((b) => b.replace(/_/g, " ").toLowerCase()).join(", "));
+    }
+    const isBot = u.bot ? "🤖 Oui" : "Non";
+    const boost = target.premiumSince ? rel(target.premiumSince) : "Non-booster";
+    const roles = target.roles.cache
+      .filter((r) => r.id !== message.guild.id)
+      .sort((a, b) => b.position - a.position)
+      .map((r) => r.toString())
+      .join(" ");
+    const nickname = target.nickname || "Aucun";
+    const presence = target.presence?.status || "inconnu";
+    const activity = target.presence?.activities?.length
+      ? target.presence.activities.map((a) => a.type === 4 ? a.state || a.name : a.name).filter(Boolean).join(", ")
+      : "Aucune";
+
+    const embed = new EmbedBuilder()
+      .setColor(target.displayColor || "#2f3136")
+      .setAuthor({ name: u.tag, iconURL: u.displayAvatarURL({ dynamic: true }) })
+      .setThumbnail(u.displayAvatarURL({ dynamic: true, size: 512 }))
+      .setDescription(u.toString())
+      .addFields(
+        { name: "🆔 ID", value: `\`${u.id}\``, inline: true },
+        { name: "🤖 Bot", value: isBot, inline: true },
+        { name: "📛 Pseudo", value: nickname, inline: true },
+        { name: "👤 Nom d'utilisateur", value: u.username, inline: true },
+        { name: "🪪 Badges", value: badges.length ? badges.join(", ") : "Aucun", inline: true },
+        { name: "🎭 Status", value: presence, inline: true },
+        { name: "🎮 Activite", value: activity, inline: false },
+        { name: "📅 Compte cree", value: `${fmt(createdAt)}\n${rel(createdAt)}`, inline: true },
+        { name: "📥 A rejoint", value: joinedAt ? `${fmt(joinedAt)} (${rel(joinedAt)})` : "Inconnu", inline: true },
+        { name: "⭐ Boost", value: boost, inline: true },
+        { name: "🎨 Couleur", value: target.displayHexColor, inline: true },
+        { name: "🧑‍🤝‍🧑 Roles", value: roles || "Aucun", inline: false },
+      )
+      .setFooter({ text: `Demande par ${message.author.username}` })
+      .setTimestamp();
     return message.reply({ embeds: [embed] });
   }
 
