@@ -604,7 +604,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help" && prefixUsed === "+") {
-    return message.reply("Commandes:\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+userinfo [id/mention/nom]` - Fiche detaillee d'un membre\n`+finduser pseudo` - Cherche un pseudo sur plusieurs reseaux\n`+snipe` - Snipe un emoji/sticker externe");
+    return message.reply("Commandes:\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+userinfo [id/mention/nom]` - Fiche detaillee d'un membre\n`+snipe` - Snipe un emoji/sticker externe");
   }
 
   if (command === "lock") {
@@ -647,19 +647,39 @@ client.on(Events.MessageCreate, async (message) => {
 
   if (command === "userinfo" || command === "lookup" || command === "whois") {
     if (!message.guild) return message.reply("Cette commande marche seulement dans un serveur.");
-    await message.guild.members.fetch().catch(() => {});
     let userID = (args[0] || "").replace(/[<@!>]/g, "");
-    let target = userID ? message.guild.members.cache.get(userID) : null;
-    if (!target) {
-      const mentioned = message.mentions.members.first() || message.mentions.users.first();
-      if (mentioned) target = message.guild.members.cache.get(mentioned.id);
+    let target = null;
+    if (userID && /^\d+$/.test(userID)) {
+      target = message.guild.members.cache.get(userID);
+      if (!target) {
+        try { target = await message.guild.members.fetch(userID).catch(() => null); } catch (e) {}
+      }
+    }
+    if (!target && message.mentions.members.first()) {
+      target = message.mentions.members.first();
+    } else if (!target && message.mentions.users.first()) {
+      const mentioned = message.mentions.users.first();
+      try { target = await message.guild.members.fetch(mentioned.id).catch(() => null); } catch (e) {}
     }
     if (!target) {
       const byName = args.join(" ");
       if (byName) {
-        target = message.guild.members.cache.find(
-          (m) => m.user.tag.toLowerCase().includes(byName.toLowerCase()) || m.displayName.toLowerCase().includes(byName.toLowerCase())
-        );
+        idxById:
+        for (const [, m] of message.guild.members.cache) {
+          if (m.user.tag.toLowerCase().includes(byName.toLowerCase()) || m.displayName.toLowerCase().includes(byName.toLowerCase())) {
+            target = m;
+            break;
+          }
+        }
+        if (!target) {
+          try { await message.guild.members.fetch().catch(() => {}); } catch (e) {}
+          for (const [, m] of message.guild.members.cache) {
+            if (m.user.tag.toLowerCase().includes(byName.toLowerCase()) || m.displayName.toLowerCase().includes(byName.toLowerCase())) {
+              target = m;
+              break;
+            }
+          }
+        }
       }
     }
     if (!target) target = message.member;
@@ -712,106 +732,6 @@ client.on(Events.MessageCreate, async (message) => {
     return message.reply({ embeds: [embed] });
   }
 
-  if (command === "finduser") {
-    if (args.length === 0) return message.reply("Usage: `+finduser <pseudo>`");
-    const pseudo = args[0].replace(/[^a-zA-Z0-9_\-]/g, "");
-    if (!pseudo) return message.reply("Pseudo invalide.");
-    await message.channel.sendTyping();
-
-    const PLATFORMS = [
-      { n: "GitHub", url: (p) => `https://api.github.com/users/${p}`, mode: "api" },
-      { n: "GitLab", url: (p) => `https://gitlab.com/api/v4/users?username=${p}`, mode: "json" },
-      { n: "YouTube", url: (p) => `https://www.youtube.com/@${p}`, mode: "http" },
-      { n: "Twitch", url: (p) => `https://www.twitch.tv/${p}`, mode: "http" },
-      { n: "Telegram", url: (p) => `https://t.me/${p}`, mode: "http" },
-      { n: "Steam", url: (p) => `https://steamcommunity.com/id/${p}`, mode: "http" },
-      { n: "Mastodon.social", url: (p) => `https://mastodon.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
-      { n: "Pixelfed.social", url: (p) => `https://pixelfed.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
-      { n: "Lemmy.world", url: (p) => `https://lemmy.world/api/v3/user?username=${p}`, mode: "api" },
-      { n: "mamot.fr", url: (p) => `https://mamot.fr/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
-      { n: "chaos.social", url: (p) => `https://chaos.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
-      { n: "twit.social", url: (p) => `https://twit.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
-      { n: "PeerTube (kino)", url: (p) => `https://kino.social/api/v1/accounts/lookup?acct=${p}`, mode: "json" },
-      { n: "SoundCloud", url: (p) => `https://soundcloud.com/${p}`, mode: "http" },
-      { n: "Vimeo", url: (p) => `https://vimeo.com/${p}`, mode: "http" },
-      { n: "Spotify", url: (p) => `https://open.spotify.com/user/${p}`, mode: "http" },
-      { n: "Dev.to", url: (p) => `https://dev.to/${p}`, mode: "http" },
-      { n: "Keybase", url: (p) => `https://keybase.io/${p}`, mode: "http" },
-      { n: "GitHub Gist", url: (p) => `https://gist.github.com/${p}`, mode: "http" },
-      { n: "Replit", url: (p) => `https://replit.com/@${p}`, mode: "http" },
-      { n: "Dribbble", url: (p) => `https://dribbble.com/${p}`, mode: "http" },
-      { n: "Flickr", url: (p) => `https://www.flickr.com/people/${p}`, mode: "http" },
-      { n: "Pastebin", url: (p) => `https://pastebin.com/u/${p}`, mode: "http" },
-      { n: "BitBucket", url: (p) => `https://bitbucket.org/${p}`, mode: "http" },
-      { n: "DeviantArt", url: (p) => `https://www.deviantart.com/${p}`, mode: "http" },
-      { n: "Pinterest", url: (p) => `https://www.pinterest.com/${p}`, mode: "http" },
-    ];
-
-    const results = [];
-    const FE = {
-      fetch: async (site, p) => {
-        const ctrl = new AbortController();
-        const t = setTimeout(() => ctrl.abort(), 7000);
-        try {
-          const res = await fetch(site.url(p), {
-            method: "GET",
-            redirect: "manual",
-            headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", accept: "application/json, text/plain, */*" },
-            signal: ctrl.signal,
-          });
-          return res;
-        } finally {
-          clearTimeout(t);
-        }
-      },
-    };
-    const check = async (site) => {
-      try {
-        const res = await FE.fetch(site, pseudo);
-        const status = res.status;
-        let verdict;
-        if (site.mode === "api") {
-          if (status === 200) verdict = "TROUVE";
-          else if (status === 404) verdict = "non trouve";
-          else verdict = "indetermine";
-        } else if (site.mode === "json") {
-          if (status === 200) {
-            try {
-              const text = await res.text();
-              const trimmed = text.trim();
-              if (trimmed === "[]" || trimmed === "null" || trimmed === "") verdict = "non trouve";
-              else verdict = "TROUVE";
-            } catch (e) { verdict = "indetermine"; }
-          } else if (status === 404) verdict = "non trouve";
-          else verdict = "indetermine";
-        } else {
-          if (status === 200) verdict = "TROUVE";
-          else if (status === 404) verdict = "non trouve";
-          else if ([301, 302, 303, 307, 308, 403, 405, 429].includes(status)) verdict = "indetermine";
-          else verdict = "indetermine";
-        }
-        results.push(`**${site.n}** : ${verdict}${verdict === "TROUVE" ? ` - ${site.url(pseudo)}` : ""}`);
-      } catch (e) {
-        results.push(`**${site.n}** : indeterminate (erreur)`);
-      }
-    };
-
-    try {
-      await Promise.all(PLATFORMS.map(check));
-    } catch (e) {}
-
-    results.sort((a, b) => (a.includes(": TROUVE") ? -1 : b.includes(": TROUVE") ? 1 : 0));
-    const found = results.filter((r) => r.includes(": TROUVE"));
-    const embed = new EmbedBuilder()
-      .setColor("#2f3136")
-      .setTitle(`Lookup du pseudo : ${pseudo}`)
-      .addFields(
-        { name: "Trouves", value: found.length ? found.join("\n") : "_Aucun_", inline: false },
-        { name: "Details", value: results.join("\n") || "_Aucun resultat_", inline: false },
-      )
-      .setTimestamp();
-    return message.reply({ embeds: [embed] });
-  }
 
   if (command === "setup-vocal") {
     const salon = message.mentions.channels.first();
