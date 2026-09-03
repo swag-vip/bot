@@ -1487,6 +1487,8 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
 client.on(Events.InteractionCreate, async (interaction) => {
 
+  try {
+
   const resolveChannel = (interaction, input) => {
     const idMatch = input.match(/<#(\d+)>/);
     const id = idMatch ? idMatch[1] : input.trim();
@@ -1542,7 +1544,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     const text = interaction.options.getString("message");
     const salonOpt = interaction.options.getChannel("salon");
-    const target = (salonOpt && salonOpt.isTextBased()) ? salonOpt : (interaction.channel && interaction.channel.isTextBased() ? interaction.channel : null);
+    let target = null;
+    if (salonOpt && (salonOpt.isTextBased && salonOpt.isTextBased())) target = salonOpt;
+    if (!target && interaction.channel && interaction.channel.isTextBased && interaction.channel.isTextBased()) target = interaction.channel;
+    if (!target) {
+      try {
+        const dm = await interaction.user.createDM();
+        target = dm;
+      } catch (e) {}
+    }
     if (!target) {
       return interaction.reply({ content: "Aucun salon texte valide.", ephemeral: true });
     }
@@ -1808,6 +1818,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ephemeral: false,
       });
     }
+  }
+
+  } catch (e) {
+    console.error("[InteractionError]", e && e.message ? e.message : e);
+    try {
+      await interaction.reply({ content: "Erreur interne. Detail: " + (e && e.message ? e.message : e), ephemeral: true });
+    } catch (_) {}
   }
 });
 
