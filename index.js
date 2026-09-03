@@ -480,11 +480,7 @@ client.once(Events.ClientReady, async () => {
     description: "Panel de controle du bot (prive)",
   };
 
-  try {
-    await client.application.commands.create(panelCommand);
-  } catch (e) {}
-
-  const sayGlobal = {
+  const sayCommand = {
     name: "say",
     description: "Faire ecrire le bot (salon courant ou choisi)",
     options: [
@@ -502,13 +498,10 @@ client.once(Events.ClientReady, async () => {
       },
     ],
   };
-  try {
-    await client.application.commands.create(sayGlobal);
-  } catch (e) {}
 
   for (const [, guild] of client.guilds.cache) {
     await guild.commands.create(panelCommand).catch(() => {});
-    await guild.commands.create(sayGlobal).catch(() => {});
+    await guild.commands.create(sayCommand).catch(() => {});
     await guild.members.fetch().catch(() => {});
 
     guild.channels.cache.forEach((channel) => {
