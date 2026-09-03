@@ -1488,15 +1488,22 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 client.on(Events.InteractionCreate, async (interaction) => {
 
   const resolveChannel = (interaction, input) => {
-    const guild = interaction.inGuild() ? interaction.guild : client.guilds.cache.first();
-    if (!guild) return null;
     const idMatch = input.match(/<#(\d+)>/);
     const id = idMatch ? idMatch[1] : input.trim();
-    const byId = guild.channels.cache.get(id);
-    if (byId) return byId;
-    return guild.channels.cache
-      .filter((c) => c.isTextBased())
-      .find((c) => c.name.toLowerCase() === id.toLowerCase());
+    if (/^\d+$/.test(id)) {
+      const byId = client.channels.cache.get(id);
+      if (byId && byId.isTextBased()) return byId;
+    }
+    const guilds = interaction.inGuild() ? [interaction.guild] : [...client.guilds.cache.values()];
+    for (const guild of guilds) {
+      const byId = guild.channels.cache.get(id);
+      if (byId && byId.isTextBased()) return byId;
+      const byName = guild.channels.cache
+        .filter((c) => c.isTextBased())
+        .find((c) => c.name.toLowerCase() === id.toLowerCase());
+      if (byName) return byName;
+    }
+    return null;
   };
 
   if (interaction.isChatInputCommand() && interaction.commandName === "panel") {
@@ -1534,20 +1541,17 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return interaction.reply({ content: "Tu n'as pas la permission.", ephemeral: true });
     }
     const text = interaction.options.getString("message");
-    const salon = interaction.options.getChannel("salon");
+    const salonOpt = interaction.options.getChannel("salon");
+    const target = (salonOpt && salonOpt.isTextBased()) ? salonOpt : (interaction.channel && interaction.channel.isTextBased() ? interaction.channel : null);
+    if (!target) {
+      return interaction.reply({ content: "Aucun salon texte valide.", ephemeral: true });
+    }
     try {
-      if (salon && salon.isTextBased()) {
-        await salon.send(text);
-        return interaction.reply({ content: `Message envoye dans <#${salon.id}>`, ephemeral: true });
-      } else {
-        if (!interaction.channel || !interaction.channel.isTextBased()) {
-          return interaction.reply({ content: "Utilise ça dans un salon texte ou passe un salon.", ephemeral: true });
-        }
-        await interaction.channel.send(text);
-        return interaction.reply({ content: "Message envoye.", ephemeral: true });
-      }
+      await target.send(text);
+      return interaction.reply({ content: `Message envoye dans <#${target.id}>`, ephemeral: true });
     } catch (err) {
-      return interaction.reply({ content: "Impossible d'envoyer (check les permissions).", ephemeral: true });
+      console.error("[SayError]", err.message || err);
+      return interaction.reply({ content: "Erreur envoi. Detail: " + (err.message || err), ephemeral: true });
     }
   }
 
@@ -1611,7 +1615,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
       return interaction.reply({ content: `Envoye dans <#${salon.id}>`, ephemeral: true });
     } catch (err) {
-      return interaction.reply({ content: "Impossible d'envoyer (check les permissions).", ephemeral: true });
+      console.error("[BotPanelSendError]", err.message || err);
+      return interaction.reply({ content: "Erreur envoi. Detail: " + (err.message || err), ephemeral: true });
     }
   }
 
