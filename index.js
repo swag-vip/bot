@@ -604,7 +604,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help" && prefixUsed === "+") {
-    return message.reply("Commandes:\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+userinfo [id/mention/nom]` - Fiche detaillee d'un membre\n`+snipe` - Snipe un emoji/sticker externe");
+    return message.reply("Commandes:\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+userinfo [id/mention/nom]` - Fiche detaillee d'un membre\n`+finduser pseudo` - Cherche un pseudo sur plusieurs reseaux\n`+snipe` - Snipe un emoji/sticker externe");
   }
 
   if (command === "lock") {
@@ -708,6 +708,69 @@ client.on(Events.MessageCreate, async (message) => {
         { name: "🧑‍🤝‍🧑 Roles", value: roles || "Aucun", inline: false },
       )
       .setFooter({ text: `Demande par ${message.author.username}` })
+      .setTimestamp();
+    return message.reply({ embeds: [embed] });
+  }
+
+  if (command === "finduser") {
+    if (args.length === 0) return message.reply("Usage: `+finduser <pseudo>`");
+    const pseudo = args[0].replace(/[^a-zA-Z0-9_\-]/g, "");
+    if (!pseudo) return message.reply("Pseudo invalide.");
+    await message.channel.sendTyping();
+    const opts = {
+      method: "HEAD",
+      redirect: "manual",
+      headers: { "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+    };
+    const results = [];
+    const real = [];
+    const check = async (label, url, mode) => {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000);
+      try {
+        const res = await fetch(url, { ...opts, signal: ctrl.signal });
+        let found = false;
+        if (mode === "github") found = res.status === 200;
+        else if (mode === "gitlab") found = res.status === 200;
+        else if (mode === "status200") found = res.status === 200;
+        if (mode === "gitlab.json") {
+          try {
+            const text = res.ok ? await res.text() : "";
+            found = text && !text.trim().startsWith("[]");
+          } catch (e) { found = false; }
+        }
+        if (found) real.push(label);
+        results.push(`${found ? "✅" : "❌"} **${label}**${found ? ` - ${url}` : ""}`);
+      } catch (e) {
+        results.push(`⚠️ ${label} - introuvable ou bloqué`);
+      } finally {
+        clearTimeout(t);
+      }
+    };
+
+    const proms = [];
+    proms.push(check("GitHub", `https://api.github.com/users/${pseudo}`, "github"));
+    proms.push(check("GitLab", `https://gitlab.com/api/v4/users?username=${pseudo}`, "gitlab.json"));
+    proms.push(check("YouTube", `https://www.youtube.com/@${pseudo}`, "status200"));
+    proms.push(check("Roblox", `https://www.roblox.com/user.aspx?username=${pseudo}`, "status200"));
+    proms.push(check("Spotify", `https://open.spotify.com/user/${pseudo}`, "status200"));
+    proms.push(check("Telegram", `https://t.me/${pseudo}`, "status200"));
+    try {
+      await Promise.all(proms);
+    } catch (e) {}
+
+    const foundList = real.length
+      ? real.map((l) => `- **${l}** : compte trouvé`).join("\n")
+      : "_Aucun compte trouvé sur les plateformes fiables._";
+
+    const embed = new EmbedBuilder()
+      .setColor("#2f3136")
+      .setTitle(`🔍 Lookup du pseudo : \`${pseudo}\``)
+      .addFields(
+        { name: "✅ Comptes trouvés", value: foundList, inline: false },
+        { name: "📋 Résultat par plateforme", value: results.join("\n") || "_Aucun résultat_", inline: false },
+      )
+      .setFooter({ text: "Fiabilité : seul GitHub/GitLab est 100% fiable sans clé. Les autres peuvent bloquer les bots.", iconURL: client.user.displayAvatarURL() })
       .setTimestamp();
     return message.reply({ embeds: [embed] });
   }
