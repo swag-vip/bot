@@ -686,27 +686,62 @@ client.on(Events.MessageCreate, async (message) => {
     const u = target.user;
     const createdAt = u.createdTimestamp ? new Date(u.createdTimestamp) : null;
     const joinedAt = target.joinedAt ? new Date(target.joinedAt) : null;
-    const now = Date.now();
     const fmt = (t) => t ? `<t:${Math.floor(t.getTime() / 1000)}:F>` : "Inconnu";
     const rel = (t) => t ? `<t:${Math.floor(t.getTime() / 1000)}:R>` : "Inconnu";
 
+    const flagNames = {
+      DiscordEmployee: "Employe Discord",
+      PartneredServerOwner: "Partenaire Discord",
+      HypeSquadEvents: "HypeSquad Events",
+      BugHunterLevel1: "Bug Hunter",
+      HypeSquadOnlineHouse1: "HypeSquad Bravery",
+      HypeSquadOnlineHouse2: "HypeSquad Brilliance",
+      HypeSquadOnlineHouse3: "HypeSquad Balance",
+      PremiumEarlySupporter: "Early Supporter",
+      BugHunterLevel2: "Bug Hunter Elite",
+      VerifiedDeveloper: "Developpeur Verifie",
+      CertifiedModerator: "Moderateur Certifie",
+      ActiveDeveloper: "Developpeur Actif",
+      Staff: "Staff",
+    };
     const badges = [];
     if (u.flags) {
-      const f = u.flags.toArray();
-      badges.push(...f.map((b) => b.replace(/_/g, " ").toLowerCase()).join(", "));
+      for (const f of u.flags.toArray()) {
+        badges.push(flagNames[f] || f.replace(/_/g, " "));
+      }
     }
-    const isBot = u.bot ? "🤖 Oui" : "Non";
+    const ageDays = createdAt ? Math.max(0, Math.floor((Date.now() - u.createdTimestamp) / 86400000)) : null;
+    const altRisk = ageDays !== null ? (ageDays < 7 ? "TRES ELEVE (compte recent)" : ageDays < 30 ? "ELEVE" : "normal") : "inconnu";
+    const isBot = u.bot ? "Oui" : "Non";
     const boost = target.premiumSince ? rel(target.premiumSince) : "Non-booster";
     const roles = target.roles.cache
       .filter((r) => r.id !== message.guild.id)
       .sort((a, b) => b.position - a.position)
-      .map((r) => r.toString())
+      .map((r) => `${r.toString()} \`${r.id}\``)
       .join(" ");
     const nickname = target.nickname || "Aucun";
-    const presence = target.presence?.status || "inconnu";
+    const presenceMap = { online: "En ligne", idle: "Absent", dnd: "Ne pas deranger", offline: "Hors ligne" };
+    const presence = target.presence?.status ? presenceMap[target.presence.status] || target.presence.status : "inconnu";
     const activity = target.presence?.activities?.length
-      ? target.presence.activities.map((a) => a.type === 4 ? a.state || a.name : a.name).filter(Boolean).join(", ")
+      ? target.presence.activities
+          .filter((a) => a.type !== 3)
+          .map((a) => (a.type === 4 ? a.state || a.name : a.name))
+          .filter(Boolean)
+          .join(", ")
       : "Aucune";
+    const voice = target.voice?.channel;
+    const voiceInfo = voice
+      ? `Dans <#${voice.id}> (${voice.members.size} pers.) · Fake mute: ${target.voice.selfMute ? "oui" : "non"} · Fake deaf: ${target.voice.selfDeaf ? "oui" : "non"} · Streaming: ${target.voice.streaming ? "oui" : "non"} · Cam: ${target.voice.selfVideo ? "oui" : "non"}`
+      : "Pas en vocal";
+    const keyPerms = target.permissions?.has([
+      PermissionsBitField.Flags.Administrator,
+      PermissionsBitField.Flags.ManageMessages,
+      PermissionsBitField.Flags.ModerateMembers,
+      PermissionsBitField.Flags.ManageRoles,
+    ].map((f) => f))
+      ? "Oui"
+      : "Non";
+    const boostCount = target.guild.premiumSubscriptionCount;
 
     const embed = new EmbedBuilder()
       .setColor(target.displayColor || "#2f3136")
@@ -714,20 +749,25 @@ client.on(Events.MessageCreate, async (message) => {
       .setThumbnail(u.displayAvatarURL({ dynamic: true, size: 512 }))
       .setDescription(u.toString())
       .addFields(
-        { name: "🆔 ID", value: `\`${u.id}\``, inline: true },
-        { name: "🤖 Bot", value: isBot, inline: true },
-        { name: "📛 Pseudo", value: nickname, inline: true },
-        { name: "👤 Nom d'utilisateur", value: u.username, inline: true },
-        { name: "🪪 Badges", value: badges.length ? badges.join(", ") : "Aucun", inline: true },
-        { name: "🎭 Status", value: presence, inline: true },
-        { name: "🎮 Activite", value: activity, inline: false },
-        { name: "📅 Compte cree", value: `${fmt(createdAt)}\n${rel(createdAt)}`, inline: true },
-        { name: "📥 A rejoint", value: joinedAt ? `${fmt(joinedAt)} (${rel(joinedAt)})` : "Inconnu", inline: true },
-        { name: "⭐ Boost", value: boost, inline: true },
-        { name: "🎨 Couleur", value: target.displayHexColor, inline: true },
-        { name: "🧑‍🤝‍🧑 Roles", value: roles || "Aucun", inline: false },
+        { name: "ID", value: `\`${u.id}\``, inline: true },
+        { name: "Tag", value: `${u.username}#${u.discriminator}`, inline: true },
+        { name: "Pseudo", value: nickname, inline: true },
+        { name: "Nom d'utilisateur", value: u.username, inline: true },
+        { name: "Bot", value: isBot, inline: true },
+        { name: "Badges", value: badges.length ? badges.join(", ") : "Aucun", inline: true },
+        { name: "Status", value: presence, inline: true },
+        { name: "Activite", value: activity, inline: false },
+        { name: "Vocal", value: voiceInfo, inline: false },
+        { name: "Compte cree", value: `${fmt(createdAt)} (${rel(createdAt)})`, inline: true },
+        { name: "Age du compte", value: ageDays !== null ? `${ageDays} jours` : "inconnu", inline: true },
+        { name: "Risque ALT", value: altRisk, inline: true },
+        { name: "A rejoint le serveur", value: joinedAt ? `${fmt(joinedAt)} (${rel(joinedAt)})` : "Inconnu", inline: true },
+        { name: "Boost", value: boost, inline: true },
+        { name: "Couleur", value: target.displayHexColor, inline: true },
+        { name: "Permissions mod", value: keyPerms, inline: true },
+        { name: "Roles", value: roles || "Aucun", inline: false },
       )
-      .setFooter({ text: `Demande par ${message.author.username}` })
+      .setFooter({ text: `Demande par ${message.author.username} · +/userinfo <id|mention|nom>` })
       .setTimestamp();
     return message.reply({ embeds: [embed] });
   }
@@ -1383,12 +1423,35 @@ client.on(Events.VoiceStateUpdate, async (oldState, newState) => {
 
   if (oldState.channel && tempChannels.has(oldState.channel.id)) {
     const channel = oldState.channel;
+    const ownerId = tempChannels.get(channel.id);
     if (channel.members.size === 0) {
       tempChannels.delete(channel.id);
       try {
         await channel.delete();
       } catch (err) {
         console.error("Erreur suppression salon:", err);
+      }
+    } else if (oldState.id === ownerId) {
+      const remaining = channel.members.filter((m) => m.id !== ownerId);
+      const membersArr = [...remaining.values()];
+      if (membersArr.length > 0) {
+        const newOwner = membersArr[Math.floor(Math.random() * membersArr.length)];
+        tempChannels.set(channel.id, newOwner.id);
+        await channel.setName(`Solo de ${newOwner.user.username}`).catch(() => {});
+        try {
+          const panelMsg = [...channel.messages.cache.values()].find((m) => m.author.id === client.user.id && m.components.length);
+          if (panelMsg) {
+            await panelMsg.edit(buildPanel(newOwner)).catch(() => {});
+          }
+        } catch (e) {}
+        const transferEmbed = new EmbedBuilder()
+          .setColor("#2f3136")
+          .setAuthor({ name: newOwner.user.username, iconURL: newOwner.user.displayAvatarURL() })
+          .setDescription(`${newOwner.user} est maintenant le nouveau proprietaire de ce salon vocal !\n> Nom du salon mis a jour : **Solo de ${newOwner.user.username}**`)
+          .setTimestamp();
+        try {
+          await channel.send({ embeds: [transferEmbed] });
+        } catch (e) {}
       }
     }
   }
