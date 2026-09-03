@@ -479,6 +479,11 @@ client.once(Events.ClientReady, async () => {
     name: "panel",
     description: "Panel de controle du bot (prive)",
   };
+
+  try {
+    await client.application.commands.create(panelCommand);
+  } catch (e) {}
+
   for (const [, guild] of client.guilds.cache) {
     await guild.commands.create(panelCommand).catch(() => {});
     await guild.members.fetch().catch(() => {});
