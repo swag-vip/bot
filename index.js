@@ -533,7 +533,7 @@ client.on(Events.MessageCreate, async (message) => {
   addMessage(message.guild.id, message.author.id);
 
   if (message.author.id !== OWNER_ID) return;
-  const prefixUsed = message.content.startsWith("!") ? "!" : message.content.startsWith("+") ? "+" : null;
+  const prefixUsed = message.content.startsWith("!") ? "!" : message.content.startsWith("+") ? "+" : message.content.startsWith("$") ? "$" : null;
   if (!prefixUsed) return;
 
   const args = message.content.slice(prefixUsed.length).trim().split(/ +/);
@@ -626,6 +626,50 @@ client.on(Events.MessageCreate, async (message) => {
 
   if (command === "help" && prefixUsed === "+") {
     return message.reply("Commandes:\n`+lock` - Verrouiller le salon vocal\n`+unlock` - Deverrouiller le salon vocal\n`+pic` - Photo de profil d'un membre\n`+userinfo [id/mention/nom]` - Fiche detaillee d'un membre\n`+snipe` - Snipe un emoji/sticker externe");
+  }
+
+  if (command === "help" && prefixUsed === "$") {
+    return message.reply("Commandes:\n`$close` - Masque tous les salons et cree le salon `end`\n`$open` - Revele tous les salons\n`$help` - Cette aide");
+  }
+
+  if (command === "close" && prefixUsed === "$") {
+    const guild = message.guild;
+    const everyone = guild.roles.everyone;
+    for (const channel of guild.channels.cache.values()) {
+      try {
+        await channel.permissionOverwrites.edit(everyone, { ViewChannel: false });
+      } catch (e) {}
+    }
+    let endChannel = guild.channels.cache.find((c) => c.name.toLowerCase() === "end");
+    if (!endChannel) {
+      endChannel = await guild.channels.create({
+        name: "end",
+        type: ChannelType.GuildText,
+        permissionOverwrites: [
+          { id: everyone.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+          { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+        ],
+      });
+    } else {
+      try {
+        await endChannel.permissionOverwrites.edit(everyone, { ViewChannel: true, SendMessages: true, ReadMessageHistory: true });
+      } catch (e) {}
+    }
+    try {
+      await endChannel.send("Salons masques. Plus personne ne voit les autres salons.");
+    } catch (e) {}
+    return message.reply(`Tous les salons sont masques. Seul <#${endChannel.id}> est visible.`);
+  }
+
+  if (command === "open" && prefixUsed === "$") {
+    const guild = message.guild;
+    const everyone = guild.roles.everyone;
+    for (const channel of guild.channels.cache.values()) {
+      try {
+        await channel.permissionOverwrites.edit(everyone, { ViewChannel: true });
+      } catch (e) {}
+    }
+    return message.reply("Tous les salons sont de nouveau visibles.");
   }
 
   if (command === "lock") {
