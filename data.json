@@ -107,7 +107,7 @@
     },
     "1440381424720154794": {
       "messages": 905,
-      "voiceMinutes": 8008
+      "voiceMinutes": 8017
     },
     "1487818839042556067": {
       "messages": 950,
@@ -826,6 +826,10 @@
       "voiceMinutes": 0
     },
     "1121121193005686815": {
+      "messages": 1,
+      "voiceMinutes": 0
+    },
+    "1543396702524801114": {
       "messages": 1,
       "voiceMinutes": 0
     }
