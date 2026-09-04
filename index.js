@@ -629,7 +629,7 @@ client.on(Events.MessageCreate, async (message) => {
   }
 
   if (command === "help" && prefixUsed === "$") {
-    return message.reply("Commandes:\n`$close` - Masque tous les salons et cree le salon `end`\n`$open` - Revele tous les salons\n`$help` - Cette aide");
+    return message.reply("Commandes:\n`$close` - Ferme le serveur\n`$open` - Reouvre le serveur\n`$help` - Cette aide");
   }
 
   if (command === "close" && prefixUsed === "$") {
