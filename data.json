@@ -110,7 +110,7 @@
       "voiceMinutes": 11060
     },
     "1487818839042556067": {
-      "messages": 1030,
+      "messages": 1031,
       "voiceMinutes": 417
     },
     "1267488425796440217": {
@@ -991,11 +991,11 @@
     },
     "1485608542009557066": {
       "messages": 10,
-      "voiceMinutes": 5
+      "voiceMinutes": 15
     },
     "1542518503318356111": {
-      "messages": 1,
-      "voiceMinutes": 7
+      "messages": 2,
+      "voiceMinutes": 17
     }
   },
   "leaderboard_1541982371929260202": "1542298885580521584",
